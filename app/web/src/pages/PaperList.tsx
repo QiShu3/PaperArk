@@ -119,9 +119,11 @@ export default function PaperList() {
       <div className="mx-auto max-w-4xl px-4 py-8">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Papers 知识库</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {activeDirection === GLOBAL_DIRECTION ? 'Papers 知识库' : activeDirection}
+            </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              共 {papersQ.data?.length ?? 0} 篇论文
+              共 {filtered.length} 篇论文
             </p>
           </div>
           <div className="flex items-center gap-2">
