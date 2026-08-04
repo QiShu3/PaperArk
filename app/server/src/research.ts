@@ -5,7 +5,9 @@ import { randomUUID } from 'node:crypto';
 import { PAPERS_ROOT, RAW_PDF_DIR, MINERU_FAILED_DIR } from './paths.js';
 import { readResearchConfig } from './researchConfig.js';
 import { searchArxiv, normalizeArxivId } from './arxiv.js';
-import { createPaper, listPapers } from './store.js';
+import { createPaper, listPapers, updatePaper } from './store.js';
+import { classifyTitleAbstract } from './classify.js';
+import { readSettings } from './settingsStore.js';
 import { logger } from './logger.js';
 
 const RUNS_FILE = path.join(PAPERS_ROOT, 'scan-runs.json');
@@ -157,6 +159,27 @@ async function runCheck(runId: string): Promise<RunRecord> {
                 year: entry.published.slice(0, 4) || undefined,
                 source: 'arxiv-auto',
               });
+              let matched: string[] = [dir.name];
+              try {
+                const settings = readSettings();
+                const directionNames = cfg.directions.map((d) => d.name);
+                if (settings.apiKey && directionNames.length > 0) {
+                  matched = await classifyTitleAbstract(
+                    entry.title,
+                    entry.summary,
+                    directionNames,
+                    settings.apiKey,
+                  );
+                }
+              } catch (e) {
+                logger.warn({ err: e, arxivId: entry.arxivId }, 'auto-classify failed, keep source direction');
+              }
+              if (!matched.includes(dir.name)) matched = [dir.name, ...matched];
+              try {
+                updatePaper(entry.arxivId, { directions: matched });
+              } catch (e) {
+                logger.warn({ err: e, arxivId: entry.arxivId }, 'failed to persist directions');
+              }
               result.papers.push({
                 id: entry.baseId,
                 arxivId: entry.arxivId,

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, FileText, Loader2, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
 import { api } from '../api';
 import type { Paper } from '../types';
+import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -75,6 +76,7 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
 
 export default function PaperList() {
   const navigate = useNavigate();
+  const { direction, setDirection } = useDirection();
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [autoOnly, setAutoOnly] = useState(false);
@@ -82,6 +84,7 @@ export default function PaperList() {
 
   const papersQ = useQuery({ queryKey: ['papers'], queryFn: api.listPapers });
   const tagsQ = useQuery({ queryKey: ['tags'], queryFn: api.listTags });
+  const researchQ = useQuery({ queryKey: ['research-config'], queryFn: api.getResearchConfig });
 
   const searching = query.trim().length >= 2;
   const searchQ = useQuery({
@@ -91,13 +94,19 @@ export default function PaperList() {
   });
 
   const baseList = searching ? (searchQ.data ?? []) : (papersQ.data ?? []);
+  const activeDirection =
+    direction !== GLOBAL_DIRECTION &&
+    (researchQ.data?.directions.some((d) => d.name === direction) ?? false)
+      ? direction
+      : GLOBAL_DIRECTION;
   const filtered = useMemo(() => {
     return baseList.filter(
       (p) =>
+        (activeDirection === GLOBAL_DIRECTION || (p.directions ?? []).includes(activeDirection)) &&
         (!autoOnly || p.source === 'arxiv-auto') &&
         selectedTags.every((t) => p.tags.includes(t)),
     );
-  }, [baseList, selectedTags, autoOnly]);
+  }, [baseList, selectedTags, autoOnly, activeDirection]);
 
   const toggleTag = (t: string) =>
     setSelectedTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
@@ -129,7 +138,8 @@ export default function PaperList() {
         </header>
 
         <div className="mt-6 flex flex-col gap-3">
-          <div className="relative">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
               value={query}
@@ -140,6 +150,20 @@ export default function PaperList() {
             {searching && searchQ.isLoading && (
               <Loader2 className="absolute right-2.5 top-2.5 size-4 animate-spin text-muted-foreground" />
             )}
+            </div>
+            <select
+              value={activeDirection}
+              onChange={(e) => setDirection(e.target.value)}
+              aria-label="研究方向"
+              className="h-9 max-w-64 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option value={GLOBAL_DIRECTION}>全局</option>
+              {researchQ.data?.directions.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex flex-wrap gap-1.5">

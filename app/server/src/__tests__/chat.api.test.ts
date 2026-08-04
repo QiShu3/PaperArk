@@ -301,4 +301,44 @@ describe('research endpoints', () => {
     const paper = (res.body as { id: string; source?: string }[]).find((p) => p.id === 'test-paper');
     expect(paper?.source).toBe('arxiv-auto');
   });
+
+  it('rejects classification when API key is missing', async () => {
+    const status = await request(app).get('/api/research/classify-status');
+    expect(status.body).toMatchObject({ running: false, current: 0, total: 0 });
+
+    const res = await request(app).post('/api/research/classify');
+    expect(res.status).toBe(400);
+  });
+
+  it('starts classification and reports progress', async () => {
+    writeFileSync(
+      join(tempDir, 'settings.json'),
+      JSON.stringify({ apiKey: 'test-key', model: 'v4-flash' }),
+    );
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', query: 'abs:a', enabled: true }],
+      }),
+    );
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"directions":[]}' } }] }),
+    });
+
+    const res = await request(app).post('/api/research/classify');
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ started: true });
+
+    await vi.waitFor(
+      async () => {
+        const st = await request(app).get('/api/research/classify-status');
+        expect(st.body.running).toBe(false);
+        expect(st.body.total).toBeGreaterThan(0);
+      },
+      { timeout: 5000 },
+    );
+  });
 });

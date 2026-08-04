@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
-import type { ResearchDirection, ResearchPaperStatus, ResearchRunDirection } from '../types';
+import type {
+  ResearchDirection,
+  ResearchPaperStatus,
+  ResearchRunDirection,
+  ClassifyStatus,
+} from '../types';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -72,6 +77,11 @@ export default function ResearchPage() {
     refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
   });
   const runsQ = useQuery({ queryKey: ['research-runs'], queryFn: api.getResearchRuns });
+  const classifyQ = useQuery({
+    queryKey: ['research-classify'],
+    queryFn: api.getClassifyStatus,
+    refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
+  });
 
   const openCreate = () => {
     setEditing(null);
@@ -133,6 +143,15 @@ export default function ResearchPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : '启动检查失败'),
   });
 
+  const classifyMut = useMutation({
+    mutationFn: api.startClassify,
+    onSuccess: () => {
+      toast.success('已开始对已有论文进行分类');
+      qc.invalidateQueries({ queryKey: ['research-classify'] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : '启动分类失败'),
+  });
+
   const submit = () => {
     const trimmedName = name.trim();
     const trimmedQuery = query.trim();
@@ -149,6 +168,8 @@ export default function ResearchPage() {
   };
 
   const running = statusQ.data?.running ?? false;
+  const classifyStatus: ClassifyStatus | undefined = classifyQ.data;
+  const classifying = classifyStatus?.running ?? false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -238,6 +259,44 @@ export default function ResearchPage() {
               </div>
             </Card>
           ))}
+        </section>
+
+        <section className="mt-8">
+          <Card className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">已有论文分类</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  由 AI 根据标题和摘要判断每篇论文所属的研究方向，已分类的论文会跳过。
+                </p>
+                {classifying && classifyStatus && (
+                  <p className="mt-1 text-sm">
+                    进度 {classifyStatus.current}/{classifyStatus.total} · 命中{' '}
+                    {classifyStatus.matched} · 失败 {classifyStatus.failed}
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                disabled={classifying || classifyMut.isPending}
+                onClick={() => classifyMut.mutate()}
+              >
+                {classifying || classifyMut.isPending ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Pencil />
+                )}
+                {classifying ? '分类中…' : '分类已有论文'}
+              </Button>
+            </div>
+            {!classifying && (classifyStatus?.failed ?? 0) > 0 && (
+              <ul className="mt-2 space-y-0.5 pl-4 text-xs text-destructive">
+                {classifyStatus!.errors.map((err) => (
+                  <li key={err}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </Card>
         </section>
 
         <section className="mt-8">

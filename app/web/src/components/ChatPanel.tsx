@@ -8,6 +8,7 @@ import { Send, Sparkles, Trash2, X, Cpu, Loader2, Plus, Square, Undo2 } from 'lu
 import { Button } from './ui/button';
 import { api } from '@/api';
 import { useChatContext } from '@/context/ChatContext';
+import { useDirection, GLOBAL_DIRECTION } from '@/context/DirectionContext';
 import type { ChatMessage, ToolCall, ToolCallDelta } from '@/types';
 import { TOOL_DEFINITIONS, createToolHandlers } from '@/tools';
 import { GLOBAL_TOOL_DEFINITIONS, createGlobalToolHandlers } from '@/tools/globalTools';
@@ -40,10 +41,14 @@ function rehypeResolveImages() {
   };
 }
 
-function buildGlobalSystemPrompt(quoteTexts?: string[]): string {
+function buildGlobalSystemPrompt(quoteTexts?: string[], direction?: string): string {
   const quoteBlock = quoteTexts && quoteTexts.length > 0
     ? `\n\n用户已选中以下文本作为额外上下文：\n---\n${quoteTexts.join('\n---\n')}\n---\n请结合上述选中内容回答问题。`
     : '';
+  const directionBlock =
+    direction && direction !== GLOBAL_DIRECTION
+      ? `\n\n当前用户处于「${direction}」研究方向视图，论文库工具默认只检索该方向下的论文。`
+      : '';
 
   return `你是一名专业的论文研究助手，同时也是一个通用的 AI 助手。
 
@@ -62,7 +67,7 @@ function buildGlobalSystemPrompt(quoteTexts?: string[]): string {
 2. 需要论文信息时主动调用工具
 3. 引用论文内容时注明：论文标题 + 段落标题
 4. 中文回答
-5. 展示图片时请直接用 Markdown 语法 ![](路径)${quoteBlock}`;
+5. 展示图片时请直接用 Markdown 语法 ![](路径)${quoteBlock}${directionBlock}`;
 }
 
 function buildSystemPrompt(
@@ -404,6 +409,7 @@ export default function ChatPanel({
     clearSession,
     rollbackLastRound,
   } = useChatContext();
+  const { direction } = useDirection();
 
   const sessionId = activeSessionId[paperId] ?? '';
   const sessions = sessionList[paperId] ?? [];
@@ -506,7 +512,7 @@ export default function ChatPanel({
       abortRef.current = controller;
 
       let systemContent = isGlobal
-        ? buildGlobalSystemPrompt(quoteRef.current)
+        ? buildGlobalSystemPrompt(quoteRef.current, direction)
         : buildSystemPrompt(
             paperContent, contentMode === 'chunk', chunkHeading, quoteRef.current,
             paperTitle, chunkDirectory,
@@ -544,11 +550,15 @@ export default function ChatPanel({
 
       const tools = isGlobal ? GLOBAL_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
       const handlers = isGlobal
-        ? createGlobalToolHandlers()
-        : createToolHandlers(paperId, () => ({
-            heading: chunkHeading ?? '',
-            content: paperContent,
-          }));
+        ? createGlobalToolHandlers(() => direction)
+        : createToolHandlers(
+            paperId,
+            () => ({
+              heading: chunkHeading ?? '',
+              content: paperContent,
+            }),
+            () => direction,
+          );
 
       const roundId = crypto.randomUUID();
       const roundStart = Date.now();

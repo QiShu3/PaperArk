@@ -21,6 +21,7 @@ const { storeMock } = vi.hoisted(() => ({
       }) => Promise<unknown>
     >(),
     listPapers: vi.fn<() => { id: string }[]>(() => []),
+    updatePaper: vi.fn(),
   },
 }));
 

@@ -162,6 +162,7 @@ function formatChunkSnippets(chunks: ChunkRow[], query: string): string {
 export function createToolHandlers(
   paperId: string,
   getCurrentChunk: () => { heading: string; content: string },
+  getCurrentDirection?: () => string,
 ): ToolHandler[] {
   const resolveChunks = async (id: string): Promise<ChunkRow[]> => {
     try {
@@ -222,8 +223,13 @@ export function createToolHandlers(
       execute: async (args) => {
         try {
           const results = await api.search(args.query);
-          if (results.length === 0) return `在论文库中未找到与 "${args.query}" 相关的论文。`;
-          return results
+          const dir = getCurrentDirection?.();
+          const visible =
+            dir && dir !== 'global'
+              ? results.filter((r) => (r.directions ?? []).includes(dir))
+              : results;
+          if (visible.length === 0) return `在论文库中未找到与 "${args.query}" 相关的论文。`;
+          return visible
             .map((r) => `- **${r.title}** (${r.id})`)
             .slice(0, 10)
             .join('\n');

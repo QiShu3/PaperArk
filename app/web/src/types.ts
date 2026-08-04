@@ -8,6 +8,7 @@ export interface Paper {
   year?: string;
   area?: string;
   source?: string;
+  directions?: string[];
   hasMd: boolean;
   hasPdf: boolean;
 }
@@ -162,4 +163,13 @@ export interface ResearchRun {
   finishedAt?: string;
   status: 'running' | 'success';
   directions: ResearchRunDirection[];
+}
+
+export interface ClassifyStatus {
+  running: boolean;
+  current: number;
+  total: number;
+  matched: number;
+  failed: number;
+  errors: string[];
 }

@@ -10,6 +10,7 @@ import type {
   ResearchDirection,
   ResearchConfigDto,
   ResearchRun,
+  ClassifyStatus,
 } from './types';
 
 const RETRY_DELAYS = [1000, 3000, 6000];
@@ -278,4 +279,7 @@ export const api = {
   getResearchStatus: () =>
     http<{ running: boolean; run: ResearchRun | null }>('/api/research/status'),
   getResearchRuns: () => http<ResearchRun[]>('/api/research/runs'),
+  startClassify: () =>
+    http<{ started: boolean }>('/api/research/classify', { method: 'POST' }),
+  getClassifyStatus: () => http<ClassifyStatus>('/api/research/classify-status'),
 };

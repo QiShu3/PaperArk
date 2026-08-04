@@ -12,6 +12,7 @@ import * as chatStore from './chatStore.js';
 import * as settingsStore from './settingsStore.js';
 import * as research from './research.js';
 import * as researchConfig from './researchConfig.js';
+import * as classify from './classify.js';
 import cron from 'node-cron';
 import db, { insertPaper, saveChunks, chunkCount } from './db.js';
 import { parseMd } from './chunker.js';
@@ -76,6 +77,12 @@ app.post('/api/papers', upload.single('pdf'), async (req, res) => {
     const year = String(req.body.year || '').trim() || undefined;
     const area = String(req.body.area || '').trim() || undefined;
     const paper = await store.createPaper({ pdfPath: req.file.path, id, tags, venue, year, area });
+    void classify
+      .classifyPaperById(paper.id)
+      .then((directions) => {
+        if (directions.length > 0) store.updatePaper(paper.id, { directions });
+      })
+      .catch((e) => logger.warn({ err: e, paperId: paper.id }, 'manual upload classification failed'));
     res.json(paper);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -231,6 +238,20 @@ app.get('/api/research/status', (_req, res) => {
 
 app.get('/api/research/runs', (_req, res) => {
   res.json(research.listRuns());
+});
+
+app.post('/api/research/classify', (_req, res) => {
+  try {
+    void classify.classifyLibrary().catch((e) => logger.error({ err: e }, 'classify library failed'));
+    res.status(202).json({ started: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(e instanceof Error && message.includes('正在进行') ? 409 : 400).json({ error: message });
+  }
+});
+
+app.get('/api/research/classify-status', (_req, res) => {
+  res.json(classify.getClassifyStatus());
 });
 
 app.get('/api/papers/:id/images', (req, res) => {

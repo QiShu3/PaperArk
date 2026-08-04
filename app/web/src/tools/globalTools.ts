@@ -90,7 +90,13 @@ function formatPaperList(papers: Paper[]): string {
     .join('\n');
 }
 
-export function createGlobalToolHandlers(): ToolHandler[] {
+export function createGlobalToolHandlers(getCurrentDirection?: () => string): ToolHandler[] {
+  const filterByDirection = (papers: Paper[]): Paper[] => {
+    const dir = getCurrentDirection?.();
+    if (!dir || dir === 'global') return papers;
+    return papers.filter((p) => (p.directions ?? []).includes(dir));
+  };
+
   const resolveChunks = async (id: string): Promise<ChunkRow[]> => {
     try {
       return await api.getChunks(id);
@@ -105,8 +111,9 @@ export function createGlobalToolHandlers(): ToolHandler[] {
       execute: async (args) => {
         try {
           const results = await api.search(args.query);
-          if (results.length === 0) return `在论文库中未找到与 "${args.query}" 相关的论文。`;
-          return results
+          const visible = filterByDirection(results);
+          if (visible.length === 0) return `在论文库中未找到与 "${args.query}" 相关的论文。`;
+          return visible
             .map((r) => `- **${r.title}** (${r.id})`)
             .slice(0, 10)
             .join('\n');
@@ -119,8 +126,13 @@ export function createGlobalToolHandlers(): ToolHandler[] {
       definition: GLOBAL_TOOL_DEFINITIONS[1],
       execute: async () => {
         try {
-          const papers = await api.listPapers();
-          if (papers.length === 0) return '论文库中暂无论文。';
+          const papers = filterByDirection(await api.listPapers());
+          const dir = getCurrentDirection?.();
+          if (papers.length === 0) {
+            return dir && dir !== 'global'
+              ? `当前研究方向「${dir}」下暂无论文。`
+              : '论文库中暂无论文。';
+          }
           return `论文库中共 ${papers.length} 篇论文：\n\n${formatPaperList(papers)}`;
         } catch {
           return '获取论文列表时出错。';

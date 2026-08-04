@@ -300,3 +300,43 @@ cron / POST /api/research/check → research.startCheck() (单飞)
 | 前端单元 + 集成 | 19 tests ✅ |
 | TypeScript 编译 | ✅ |
 | Vite 构建 | ✅ |
+
+### 扩展：AI 分类 + 全局方向筛选
+
+研究方向升级为全局筛选维度：
+
+- **AI 分类**：`classify.ts` 复用 settings 里的 DeepSeek key（模型默认 `v4-flash`，可用 `CLASSIFY_MODEL` 覆盖），根据标题 + 摘要判断论文属于哪些方向；`POST /api/research/classify` 批量分类已有论文（跳过已分类），`GET /api/research/classify-status` 查看进度
+- **自动分类**：自动收录的新论文入库时用 arXiv 摘要即时分类，失败则兜底到抓取它的方向；手动上传论文也会后台异步分类
+- **数据模型**：`papers.json` 每篇新增 `directions: string[]`（可属多方向，`Paper`/meta/store 全链路透传）
+- **全局切换**：`DirectionContext` 保存当前选择（`global` 或具体方向名，localStorage 持久化）；论文列表页左上角下拉切换
+- **作用范围**：列表、搜索、阅读页徽标、全局对话工具（`search_papers`/`list_papers`）与系统提示词全部跟随当前方向
+
+新增/修改文件：
+
+```
+新增:
+  app/server/src/classify.ts
+  app/server/src/__tests__/classify.test.ts   (12 用例)
+  app/web/src/context/DirectionContext.tsx
+  app/web/src/__tests__/DirectionContext.test.tsx (3 用例)
+
+修改:
+  app/server/src/meta.ts / store.ts   (+ directions 字段)
+  app/server/src/research.ts          (入库后 AI 分类)
+  app/server/src/index.ts             (+ classify 路由 + 上传后分类)
+  app/web/src/types.ts / api.ts       (+ directions, ClassifyStatus)
+  app/web/src/App.tsx                 (+ DirectionProvider)
+  app/web/src/pages/PaperList.tsx     (+ 方向切换器 + 过滤)
+  app/web/src/pages/ResearchPage.tsx  (+ 分类入口与进度)
+  app/web/src/components/ChatPanel.tsx (+ useDirection, 系统提示词)
+  app/web/src/tools.ts / tools/globalTools.ts (工具按方向过滤)
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 59 tests ✅ |
+| 前端单元 + 集成 | 23 tests ✅ |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |

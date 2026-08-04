@@ -18,6 +18,7 @@ export interface Paper {
   year?: string;
   area?: string;
   source?: string;
+  directions?: string[];
   hasMd: boolean;
   hasPdf: boolean;
 }
@@ -60,6 +61,7 @@ export function listPapers(): Paper[] {
       year: m?.year,
       area: m?.area,
       source: m?.source,
+      directions: m?.directions ?? [],
       hasMd,
       hasPdf: fs.existsSync(path.join(RAW_PDF_DIR, `${id}.pdf`)),
     };
@@ -119,6 +121,7 @@ export interface UpdatePatch {
   year?: string;
   area?: string;
   source?: string;
+  directions?: string[];
 }
 
 export function updatePaper(id: string, patch: UpdatePatch): PaperDetail | null {
@@ -140,6 +143,7 @@ export function updatePaper(id: string, patch: UpdatePatch): PaperDetail | null 
     year: patch.year !== undefined ? patch.year : cur.year,
     area: patch.area !== undefined ? patch.area : cur.area,
     source: patch.source !== undefined ? patch.source : cur.source,
+    directions: patch.directions !== undefined ? patch.directions : (cur.directions ?? []),
   };
   writeMeta(meta);
   rebuildIndex();
@@ -172,6 +176,7 @@ export interface CreateInput {
   year?: string;
   area?: string;
   source?: string;
+  directions?: string[];
 }
 
 export async function createPaper(input: CreateInput): Promise<PaperDetail> {
@@ -196,6 +201,7 @@ export async function createPaper(input: CreateInput): Promise<PaperDetail> {
     year: input.year,
     area: input.area,
     source: input.source,
+    directions: input.directions ?? [],
   };
   writeMeta(meta);
   rebuildIndex();

@@ -14,6 +14,8 @@ const { mockApi } = vi.hoisted(() => ({
     updateResearchDirection: vi.fn(),
     deleteResearchDirection: vi.fn(),
     checkResearch: vi.fn(),
+    startClassify: vi.fn(),
+    getClassifyStatus: vi.fn(),
   },
 }));
 
@@ -74,6 +76,15 @@ describe('ResearchPage', () => {
     });
     mockApi.deleteResearchDirection.mockResolvedValue({ ok: true });
     mockApi.checkResearch.mockResolvedValue({ runId: 'run-new' });
+    mockApi.startClassify.mockResolvedValue({ started: true });
+    mockApi.getClassifyStatus.mockResolvedValue({
+      running: false,
+      current: 0,
+      total: 0,
+      matched: 0,
+      failed: 0,
+      errors: [],
+    });
   });
 
   it('renders directions, schedule info and run history', async () => {
@@ -124,6 +135,16 @@ describe('ResearchPage', () => {
 
     await waitFor(() => {
       expect(mockApi.checkResearch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('starts classification of existing papers', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /分类已有论文/ }));
+
+    await waitFor(() => {
+      expect(mockApi.startClassify).toHaveBeenCalledTimes(1);
     });
   });
 });
