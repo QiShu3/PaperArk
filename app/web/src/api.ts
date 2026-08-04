@@ -1,4 +1,16 @@
-import type { Paper, PaperDetail, SearchResult, TagCount, ChatMessage, ChatSession, ChunkRow, ToolCallDelta } from './types';
+import type {
+  Paper,
+  PaperDetail,
+  SearchResult,
+  TagCount,
+  ChatMessage,
+  ChatSession,
+  ChunkRow,
+  ToolCallDelta,
+  ResearchDirection,
+  ResearchConfigDto,
+  ResearchRun,
+} from './types';
 
 const RETRY_DELAYS = [1000, 3000, 6000];
 
@@ -241,4 +253,29 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(s),
     }),
+  getResearchConfig: () => http<ResearchConfigDto>('/api/research/directions'),
+  createResearchDirection: (d: { name: string; query: string; enabled?: boolean; maxPerRun?: number }) =>
+    http<ResearchDirection>('/api/research/directions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(d),
+    }),
+  updateResearchDirection: (
+    name: string,
+    patch: { query?: string; enabled?: boolean; maxPerRun?: number },
+  ) =>
+    http<ResearchDirection>(`/api/research/directions/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  deleteResearchDirection: (name: string) =>
+    http<{ ok: boolean }>(`/api/research/directions/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
+  checkResearch: () =>
+    http<{ runId: string }>('/api/research/check', { method: 'POST' }),
+  getResearchStatus: () =>
+    http<{ running: boolean; run: ResearchRun | null }>('/api/research/status'),
+  getResearchRuns: () => http<ResearchRun[]>('/api/research/runs'),
 };

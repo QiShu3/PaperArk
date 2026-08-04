@@ -13,6 +13,7 @@ import {
   Pencil,
   Save,
   Settings,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -240,8 +241,14 @@ export default function PaperReader() {
             )}
             </div>
 
-            {(paper.venue || paper.year || paper.area) && !editingMeta && (
+            {(paper.venue || paper.year || paper.area || paper.source === 'arxiv-auto') && !editingMeta && (
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-11">
+                {paper.source === 'arxiv-auto' && (
+                  <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <Sparkles className="size-3" />
+                    自动收录
+                  </span>
+                )}
                 {paper.venue && (
                   <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                     <Building2 className="size-3" />

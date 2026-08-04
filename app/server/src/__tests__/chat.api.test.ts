@@ -223,3 +223,82 @@ describe('GET /api/papers/:id/chunks?q=', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 });
+
+describe('research endpoints', () => {
+  it('returns default directions when no config exists', async () => {
+    const res = await request(app).get('/api/research/directions');
+    expect(res.status).toBe(200);
+    expect(res.body.schedule.cron).toBe('0 9 * * *');
+    expect(res.body.directions.length).toBeGreaterThan(0);
+  });
+
+  it('creates, validates, updates and deletes directions', async () => {
+    const created = await request(app)
+      .post('/api/research/directions')
+      .send({ name: '测试方向', query: 'abs:test' });
+    expect(created.status).toBe(201);
+    expect(created.body.enabled).toBe(true);
+
+    const dup = await request(app)
+      .post('/api/research/directions')
+      .send({ name: '测试方向', query: 'abs:other' });
+    expect(dup.status).toBe(400);
+
+    const empty = await request(app)
+      .post('/api/research/directions')
+      .send({ name: '空查询', query: '   ' });
+    expect(empty.status).toBe(400);
+
+    const updated = await request(app)
+      .put(`/api/research/directions/${encodeURIComponent('测试方向')}`)
+      .send({ query: 'abs:updated', enabled: false, maxPerRun: 3 });
+    expect(updated.status).toBe(200);
+    expect(updated.body).toMatchObject({ query: 'abs:updated', enabled: false, maxPerRun: 3 });
+
+    const missing = await request(app)
+      .put(`/api/research/directions/${encodeURIComponent('不存在')}`)
+      .send({ query: 'abs:x' });
+    expect(missing.status).toBe(404);
+
+    const list = await request(app).get('/api/research/directions');
+    expect(list.body.directions.some((d: { name: string }) => d.name === '测试方向')).toBe(true);
+
+    const del = await request(app).delete(`/api/research/directions/${encodeURIComponent('测试方向')}`);
+    expect(del.status).toBe(200);
+  });
+
+  it('runs a check and exposes status and run history', async () => {
+    // Disable all directions so the background run completes instantly without network.
+    const cfg = await request(app).get('/api/research/directions');
+    for (const d of cfg.body.directions as { name: string }[]) {
+      await request(app).delete(`/api/research/directions/${encodeURIComponent(d.name)}`);
+    }
+
+    const res = await request(app).post('/api/research/check');
+    expect(res.status).toBe(202);
+    expect(res.body.runId).toBeTruthy();
+
+    await vi.waitFor(
+      async () => {
+        const st = await request(app).get('/api/research/status');
+        expect(st.body.running).toBe(false);
+      },
+      { timeout: 5000 },
+    );
+
+    const runs = await request(app).get('/api/research/runs');
+    expect(runs.status).toBe(200);
+    expect(runs.body.length).toBeGreaterThan(0);
+    expect(runs.body[0].status).toBe('success');
+  });
+
+  it('includes source in the papers list', async () => {
+    writeFileSync(
+      join(tempDir, 'papers.json'),
+      JSON.stringify({ 'test-paper': { tags: [], source: 'arxiv-auto' } }),
+    );
+    const res = await request(app).get('/api/papers');
+    const paper = (res.body as { id: string; source?: string }[]).find((p) => p.id === 'test-paper');
+    expect(paper?.source).toBe('arxiv-auto');
+  });
+});

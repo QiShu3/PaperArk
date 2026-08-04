@@ -10,6 +10,9 @@ import * as store from './store.js';
 import chatRouter from './chat.js';
 import * as chatStore from './chatStore.js';
 import * as settingsStore from './settingsStore.js';
+import * as research from './research.js';
+import * as researchConfig from './researchConfig.js';
+import cron from 'node-cron';
 import db, { insertPaper, saveChunks, chunkCount } from './db.js';
 import { parseMd } from './chunker.js';
 import { logger, requestIdMiddleware, getRequestId } from './logger.js';
@@ -184,6 +187,52 @@ app.put('/api/settings', (req, res) => {
   res.json(next);
 });
 
+app.get('/api/research/directions', (_req, res) => {
+  const cfg = researchConfig.readResearchConfig();
+  res.json({ schedule: cfg.schedule, maxPerRun: cfg.maxPerRun, directions: cfg.directions });
+});
+
+app.post('/api/research/directions', (req, res) => {
+  try {
+    const dir = researchConfig.addDirection(req.body ?? {});
+    res.status(201).json(dir);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.put('/api/research/directions/:name', (req, res) => {
+  try {
+    const dir = researchConfig.updateDirection(req.params.name, req.body ?? {});
+    if (!dir) return res.status(404).json({ error: '研究方向不存在' });
+    res.json(dir);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.delete('/api/research/directions/:name', (req, res) => {
+  const ok = researchConfig.deleteDirection(req.params.name);
+  if (!ok) return res.status(404).json({ error: '研究方向不存在' });
+  res.json({ ok: true });
+});
+
+app.post('/api/research/check', (_req, res) => {
+  try {
+    res.status(202).json(research.startCheck());
+  } catch (e) {
+    res.status(409).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.get('/api/research/status', (_req, res) => {
+  res.json(research.getStatus());
+});
+
+app.get('/api/research/runs', (_req, res) => {
+  res.json(research.listRuns());
+});
+
 app.get('/api/papers/:id/images', (req, res) => {
   const paper = store.getPaper(req.params.id);
   if (!paper) return res.status(404).json({ error: '论文不存在' });
@@ -241,4 +290,21 @@ if (!process.env.VITEST) {
   app.listen(PORT, () => {
     console.log(`API server running at http://localhost:${PORT}`);
   });
+  const cfg = researchConfig.readResearchConfig();
+  if (cron.validate(cfg.schedule.cron)) {
+    cron.schedule(
+      cfg.schedule.cron,
+      () => {
+        try {
+          research.startCheck();
+        } catch (e) {
+          logger.warn({ err: e }, 'scheduled research check skipped');
+        }
+      },
+      { timezone: cfg.schedule.timezone || undefined },
+    );
+    logger.info({ cron: cfg.schedule.cron, timezone: cfg.schedule.timezone }, 'research scheduler started');
+  } else {
+    logger.warn({ cron: cfg.schedule.cron }, 'invalid research schedule cron, scheduler disabled');
+  }
 }

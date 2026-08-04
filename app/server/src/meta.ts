@@ -8,6 +8,7 @@ export interface PaperMeta {
   venue?: string;
   year?: string;
   area?: string;
+  source?: string;
 }
 
 export type MetaStore = Record<string, PaperMeta>;

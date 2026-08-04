@@ -226,3 +226,77 @@ interface Props {
 | 前端单元 + 集成 | 15 tests ✅ |
 | TypeScript 编译 | ✅ |
 | Vite 构建 | ✅ |
+
+---
+
+## 研究方向自动收录 (Phase 5)
+
+### 功能
+
+新增按研究方向定时自动收录 arXiv 论文的能力：
+
+- **研究方向配置**：`research.json`（PAPERS_ROOT 下），含定时 cron（默认每天 09:00 Asia/Shanghai）、全局单方向上限（默认 5）、方向列表（名称 + arXiv 查询词 + 开关 + 可选单方向上限）
+- **自动入库**：服务运行时按 cron 触发；每个启用的方向调用 arXiv API（sortBy=submittedDate 倒序），与库内 ID（归一化去掉 vN）去重后，自动下载 PDF → 复用 MinerU 解析链路入库
+- **状态标记**：自动收录论文 meta 写入 `source: 'arxiv-auto'`、`area: 方向名`、`year: arXiv 提交年份`；列表页显示「自动收录」徽标并支持筛选
+- **失败处理**：下载失败记 `download_failed`；MinerU 解析失败把 PDF 移入 `mineru-failed/` 并记 `parse_failed`，后续运行自动跳过直到手动移除
+- **运行历史**：每次运行写入 `scan-runs.json`（保留 50 条），含每篇论文的状态；`POST /api/research/check` 手动触发，单飞防重入
+
+### 架构
+
+```
+cron / POST /api/research/check → research.startCheck() (单飞)
+  └─ research.runCheck
+       ├─ searchArxiv(query)        # export.arxiv.org/api/query, 3s 间隔
+       ├─ 去重 (库内 ID + mineru-failed)
+       ├─ downloadPdf(arxivId)      # arxiv.org/pdf/<id>
+       └─ createPaper(source='arxiv-auto') → MinerU 解析入库
+
+/research 页面 (React)
+  ├─ 方向增删改 / 启用停用
+  ├─ 立即检查 + 轮询运行状态
+  └─ 运行历史 (状态徽标 + 失败原因)
+```
+
+### API
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/research/directions` | 配置（schedule + maxPerRun + 方向列表） |
+| POST | `/api/research/directions` | 新增方向（名称唯一） |
+| PUT | `/api/research/directions/:name` | 更新查询词/开关/上限（名称不可改） |
+| DELETE | `/api/research/directions/:name` | 删除方向 |
+| POST | `/api/research/check` | 手动触发检查（202 + runId，异步） |
+| GET | `/api/research/status` | 运行中状态或最近一次运行 |
+| GET | `/api/research/runs` | 运行历史 |
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/researchConfig.ts   (research.json 读写/校验/方向 CRUD)
+  app/server/src/arxiv.ts            (arXiv API 查询 + Atom XML 解析)
+  app/server/src/research.ts         (checkNow 流水线 + 运行历史)
+  app/server/src/__tests__/research.test.ts (13 用例)
+  app/web/src/pages/ResearchPage.tsx (/research 管理页)
+  app/web/src/__tests__/ResearchPage.test.tsx (4 用例)
+
+修改:
+  app/server/package.json             (+ node-cron, fast-xml-parser; better-sqlite3 锁 12.11.1)
+  app/server/src/paths.ts             (+ MINERU_FAILED_DIR)
+  app/server/src/meta.ts / store.ts   (+ source 字段, updatePaper 保留 source)
+  app/server/src/index.ts             (+ research 路由 + cron 注册)
+  app/server/src/__tests__/chat.api.test.ts (+ research API 测试 4 用例)
+  app/web/src/types.ts / api.ts       (+ research 类型与接口)
+  app/web/src/App.tsx                 (+ /research 路由)
+  app/web/src/pages/PaperList.tsx     (+ 自动收录徽标/筛选 + 入口按钮)
+  app/web/src/pages/PaperReader.tsx   (+ 自动收录徽标)
+```
+
+### 测试
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 46 tests ✅ |
+| 前端单元 + 集成 | 19 tests ✅ |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |

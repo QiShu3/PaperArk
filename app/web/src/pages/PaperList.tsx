@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, FileText, Loader2, MessageSquare, Plus, Search } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
 import { api } from '../api';
 import type { Paper } from '../types';
 import { Badge } from '../components/ui/badge';
@@ -32,6 +32,7 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
             {paper.area && (
               <span className="text-muted-foreground/70">{paper.area}</span>
             )}
+            {paper.source === 'arxiv-auto' && <Badge variant="outline">自动收录</Badge>}
             {!paper.hasMd && <Badge variant="outline">无 MD</Badge>}
             {paper.snippet && (
               <span className="line-clamp-1 italic text-muted-foreground">{paper.snippet}</span>
@@ -76,6 +77,7 @@ export default function PaperList() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [autoOnly, setAutoOnly] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const papersQ = useQuery({ queryKey: ['papers'], queryFn: api.listPapers });
@@ -90,9 +92,12 @@ export default function PaperList() {
 
   const baseList = searching ? (searchQ.data ?? []) : (papersQ.data ?? []);
   const filtered = useMemo(() => {
-    if (selectedTags.length === 0) return baseList;
-    return baseList.filter((p) => selectedTags.every((t) => p.tags.includes(t)));
-  }, [baseList, selectedTags]);
+    return baseList.filter(
+      (p) =>
+        (!autoOnly || p.source === 'arxiv-auto') &&
+        selectedTags.every((t) => p.tags.includes(t)),
+    );
+  }, [baseList, selectedTags, autoOnly]);
 
   const toggleTag = (t: string) =>
     setSelectedTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
@@ -114,6 +119,9 @@ export default function PaperList() {
             <Button variant="outline" onClick={() => navigate('/chat')}>
               <MessageSquare /> 全局对话
             </Button>
+            <Button variant="outline" onClick={() => navigate('/research')}>
+              <RefreshCw /> 研究方向
+            </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Plus /> 新增论文
             </Button>
@@ -134,9 +142,16 @@ export default function PaperList() {
             )}
           </div>
 
-          {(tagsQ.data?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {tagsQ.data!.map((t) => {
+          <div className="flex flex-wrap gap-1.5">
+            <Badge
+              variant={autoOnly ? 'default' : 'outline'}
+              className="cursor-pointer select-none"
+              onClick={() => setAutoOnly((v) => !v)}
+            >
+              自动收录
+            </Badge>
+            {(tagsQ.data?.length ?? 0) > 0 &&
+              tagsQ.data!.map((t) => {
                 const active = selectedTags.includes(t.tag);
                 return (
                   <Badge
@@ -150,8 +165,7 @@ export default function PaperList() {
                   </Badge>
                 );
               })}
-            </div>
-          )}
+          </div>
         </div>
 
         <div className="mt-6 space-y-3">

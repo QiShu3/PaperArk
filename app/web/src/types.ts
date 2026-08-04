@@ -7,6 +7,7 @@ export interface Paper {
   venue?: string;
   year?: string;
   area?: string;
+  source?: string;
   hasMd: boolean;
   hasPdf: boolean;
 }
@@ -118,4 +119,47 @@ export interface ChunkRow {
   parent_id: number | null;
   content: string;
   char_count: number;
+}
+
+export interface ResearchDirection {
+  name: string;
+  query: string;
+  enabled: boolean;
+  maxPerRun?: number;
+}
+
+export interface ResearchConfigDto {
+  schedule: { cron: string; timezone: string };
+  maxPerRun: number;
+  directions: ResearchDirection[];
+}
+
+export type ResearchPaperStatus =
+  | 'added'
+  | 'duplicate'
+  | 'download_failed'
+  | 'parse_failed'
+  | 'previously_failed';
+
+export interface ResearchRunPaper {
+  id: string;
+  arxivId: string;
+  title: string;
+  status: ResearchPaperStatus;
+  error?: string;
+}
+
+export interface ResearchRunDirection {
+  direction: string;
+  query: string;
+  papers: ResearchRunPaper[];
+  error?: string;
+}
+
+export interface ResearchRun {
+  runId: string;
+  startedAt: string;
+  finishedAt?: string;
+  status: 'running' | 'success';
+  directions: ResearchRunDirection[];
 }
