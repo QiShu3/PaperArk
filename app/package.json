@@ -1,0 +1,14 @@
+{
+  "name": "papers-app",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,green \"pnpm --filter @papers/server dev\" \"pnpm --filter @papers/web dev\"",
+    "build": "pnpm --filter @papers/web build",
+    "start": "pnpm --filter @papers/server start",
+    "typecheck": "pnpm --filter @papers/web typecheck && pnpm --filter @papers/server typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

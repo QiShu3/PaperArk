@@ -1,0 +1,31 @@
+export const PAPER_IDS = [
+  '2311.12908',
+  '2307.12499',
+  '2503.09124',
+  '2412.09910',
+  '2506.01511',
+  '2510.22981',
+  '2307.08076',
+  '2410.08453',
+  '2501.08246',
+  'ResolutionAttack_ICLR2025',
+  'DiffScene_AAAI2025',
+  'ObjectAdv_AAAI2026',
+  'Diff-NAT_AAAI2026',
+];
+
+export const PAPER_META: Record<string, { file: string; venue: string; year: string; area: string }> = {
+  '2311.12908': { file: '2311.12908.pdf', venue: 'IEEE TPAMI', year: '2024', area: '图像分类' },
+  '2307.12499': { file: '2307.12499.pdf', venue: 'ECCV', year: '2024', area: '图像分类' },
+  '2503.09124': { file: '2503.09124.pdf', venue: 'NeurIPS', year: '2024', area: '图像分类' },
+  '2412.09910': { file: '2412.09910.pdf', venue: 'CVPR', year: '2025', area: '医学影像' },
+  '2506.01511': { file: '2506.01511.pdf', venue: 'NeurIPS', year: '2025', area: '图像分类' },
+  '2510.22981': { file: '2510.22981.pdf', venue: 'NeurIPS', year: '2025', area: '图像分类' },
+  '2307.08076': { file: '2307.08076.pdf', venue: 'ICIP', year: '2025', area: '目标检测' },
+  '2410.08453': { file: '2410.08453.pdf', venue: 'IROS', year: '2024', area: '自动驾驶' },
+  '2501.08246': { file: '2501.08246.pdf', venue: 'AAAI', year: '2025', area: 'LLM' },
+  'ResolutionAttack_ICLR2025': { file: 'ResolutionAttack_ICLR2025.pdf', venue: 'ICLR', year: '2025', area: '图像分类' },
+  'DiffScene_AAAI2025': { file: 'DiffScene_AAAI2025.pdf', venue: 'AAAI', year: '2025', area: '自动驾驶' },
+  'ObjectAdv_AAAI2026': { file: 'ObjectAdv_AAAI2026.pdf', venue: 'AAAI', year: '2026', area: '图像分类' },
+  'Diff-NAT_AAAI2026': { file: 'Diff-NAT_AAAI2026.pdf', venue: 'AAAI', year: '2026', area: '目标检测' },
+};

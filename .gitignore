@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.opencode/
+
+# Build output
+dist/
+app/web/dist/
+
+# Knowledge base data (PDF / MinerU Markdown / images)
+rawPDF/
+MD/
+tmp/
+mineru-failed/
+filelist.txt
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets (contains API key)
+settings.json
+
+# Misc
+chat-images.png
