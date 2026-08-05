@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, FileText, Loader2, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
+import {
+  Calendar,
+  ExternalLink,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
 import { api } from '../api';
 import type { Paper } from '../types';
 import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
@@ -33,8 +42,19 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
             {paper.area && (
               <span className="text-muted-foreground/70">{paper.area}</span>
             )}
+            {paper.addedAt && (
+              <span className="inline-flex items-center gap-0.5">
+                <Calendar className="size-3" />
+                {formatDate(paper.addedAt)}
+              </span>
+            )}
             {paper.source === 'arxiv-auto' && <Badge variant="outline">自动收录</Badge>}
             {!paper.hasMd && <Badge variant="outline">无 MD</Badge>}
+            {paper.directions?.map((d) => (
+              <Badge key={d} variant="secondary" className="text-[10px]">
+                {d}
+              </Badge>
+            ))}
             {paper.snippet && (
               <span className="line-clamp-1 italic text-muted-foreground">{paper.snippet}</span>
             )}
@@ -74,12 +94,62 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
   );
 }
 
+function formatDate(iso?: string): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
+type SortKey = 'addedDesc' | 'addedAsc' | 'yearDesc' | 'yearAsc' | 'titleAsc';
+
+function sortPapers(list: Paper[], sortBy: SortKey): Paper[] {
+  const arr = [...list];
+  const addedOf = (p: Paper): number | undefined =>
+    p.addedAt ? Date.parse(p.addedAt) : undefined;
+  const yearOf = (p: Paper): number | undefined =>
+    p.year && !Number.isNaN(Number(p.year)) ? Number(p.year) : undefined;
+  const cmpNum = (a?: number, b?: number): number => {
+    if (a === b) return 0;
+    if (a === undefined) return 1; // 缺失字段排最后
+    if (b === undefined) return -1;
+    return a - b;
+  };
+
+  switch (sortBy) {
+    case 'addedAsc':
+      arr.sort((a, b) => cmpNum(addedOf(a), addedOf(b)));
+      break;
+    case 'yearDesc':
+      arr.sort((a, b) => cmpNum(yearOf(b), yearOf(a)));
+      break;
+    case 'yearAsc':
+      arr.sort((a, b) => cmpNum(yearOf(a), yearOf(b)));
+      break;
+    case 'titleAsc':
+      arr.sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
+      break;
+    default:
+      arr.sort((a, b) => cmpNum(addedOf(b), addedOf(a)));
+  }
+  return arr;
+}
+
 export default function PaperList() {
   const navigate = useNavigate();
-  const { direction, setDirection } = useDirection();
+  const { direction } = useDirection();
   const [query, setQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
   const [autoOnly, setAutoOnly] = useState(false);
+  const [yearFilter, setYearFilter] = useState('');
+  const [sortBy, setSortBy] = useState<SortKey>('addedDesc');
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const papersQ = useQuery({ queryKey: ['papers'], queryFn: api.listPapers });
@@ -99,17 +169,42 @@ export default function PaperList() {
     (researchQ.data?.directions.some((d) => d.name === direction) ?? false)
       ? direction
       : GLOBAL_DIRECTION;
+
+  const years = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of papersQ.data ?? []) {
+      if (p.year) set.add(p.year);
+    }
+    return [...set].sort((a, b) => Number(b) - Number(a));
+  }, [papersQ.data]);
+
+  const venueCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of papersQ.data ?? []) {
+      if (!p.venue) continue;
+      map.set(p.venue, (map.get(p.venue) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-CN'));
+  }, [papersQ.data]);
+
   const filtered = useMemo(() => {
     return baseList.filter(
       (p) =>
         (activeDirection === GLOBAL_DIRECTION || (p.directions ?? []).includes(activeDirection)) &&
+        (!yearFilter || p.year === yearFilter) &&
+        (!selectedVenues.length || (p.venue && selectedVenues.includes(p.venue))) &&
         (!autoOnly || p.source === 'arxiv-auto') &&
         selectedTags.every((t) => p.tags.includes(t)),
     );
-  }, [baseList, selectedTags, autoOnly, activeDirection]);
+  }, [baseList, selectedTags, selectedVenues, autoOnly, activeDirection, yearFilter]);
+
+  const sorted = useMemo(() => sortPapers(filtered, sortBy), [filtered, sortBy]);
 
   const toggleTag = (t: string) =>
     setSelectedTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+
+  const toggleVenue = (v: string) =>
+    setSelectedVenues((cur) => (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]));
 
   const loading = papersQ.isLoading || (searching && searchQ.isLoading);
   const error = papersQ.error || (searching ? searchQ.error : null);
@@ -142,55 +237,85 @@ export default function PaperList() {
         <div className="mt-6 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索标题或正文(至少 2 个字符)…"
-              className="pl-8"
-            />
-            {searching && searchQ.isLoading && (
-              <Loader2 className="absolute right-2.5 top-2.5 size-4 animate-spin text-muted-foreground" />
-            )}
+              <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索标题或正文(至少 2 个字符)…"
+                className="pl-8"
+              />
+              {searching && searchQ.isLoading && (
+                <Loader2 className="absolute right-2.5 top-2.5 size-4 animate-spin text-muted-foreground" />
+              )}
             </div>
-            <select
-              value={activeDirection}
-              onChange={(e) => setDirection(e.target.value)}
-              aria-label="研究方向"
-              className="h-9 max-w-64 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            >
-              <option value={GLOBAL_DIRECTION}>全局</option>
-              {researchQ.data?.directions.map((d) => (
-                <option key={d.name} value={d.name}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            <Badge
-              variant={autoOnly ? 'default' : 'outline'}
-              className="cursor-pointer select-none"
-              onClick={() => setAutoOnly((v) => !v)}
-            >
-              自动收录
-            </Badge>
-            {(tagsQ.data?.length ?? 0) > 0 &&
-              tagsQ.data!.map((t) => {
-                const active = selectedTags.includes(t.tag);
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="flex w-3/4 min-w-0 flex-wrap gap-1.5">
+              <Badge
+                variant={autoOnly ? 'default' : 'outline'}
+                className="cursor-pointer select-none px-2.5 py-1 text-sm"
+                onClick={() => setAutoOnly((v) => !v)}
+              >
+                自动收录
+              </Badge>
+              {venueCounts.map(([v, count]) => {
+                const active = selectedVenues.includes(v);
                 return (
                   <Badge
-                    key={t.tag}
+                    key={v}
                     variant={active ? 'default' : 'outline'}
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleTag(t.tag)}
+                    className="cursor-pointer select-none px-2.5 py-1 text-sm"
+                    onClick={() => toggleVenue(v)}
                   >
-                    {t.tag}
-                    <span className="ml-1 opacity-60">{t.count}</span>
+                    {v}
+                    <span className="ml-1 opacity-60">{count}</span>
                   </Badge>
                 );
               })}
+              {(tagsQ.data?.length ?? 0) > 0 &&
+                tagsQ.data!.map((t) => {
+                  const active = selectedTags.includes(t.tag);
+                  return (
+                    <Badge
+                      key={t.tag}
+                      variant={active ? 'default' : 'outline'}
+                      className="cursor-pointer select-none px-2.5 py-1 text-sm"
+                      onClick={() => toggleTag(t.tag)}
+                    >
+                      {t.tag}
+                      <span className="ml-1 opacity-60">{t.count}</span>
+                    </Badge>
+                  );
+                })}
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                aria-label="按年份筛选"
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <option value="">全部年份</option>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                aria-label="排序方式"
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <option value="addedDesc">最新收录</option>
+                <option value="addedAsc">最早收录</option>
+                <option value="yearDesc">年份最新</option>
+                <option value="yearAsc">年份最早</option>
+                <option value="titleAsc">标题 A-Z</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -206,13 +331,15 @@ export default function PaperList() {
 
           {!loading && !error && filtered.length === 0 && (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              {searching || selectedTags.length > 0 ? '没有匹配的论文' : '知识库暂无论文,点击右上角新增'}
+              {searching || selectedTags.length > 0 || selectedVenues.length > 0
+                ? '没有匹配的论文'
+                : '知识库暂无论文,点击右上角新增'}
             </p>
           )}
 
           {!loading &&
             !error &&
-            filtered.map((p) => <PaperRow key={p.id} paper={p} />)}
+            sorted.map((p) => <PaperRow key={p.id} paper={p} />)}
         </div>
       </div>
 

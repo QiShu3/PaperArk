@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import ResearchPage from '../pages/ResearchPage';
+import { DirectionProvider, GLOBAL_DIRECTION } from '../context/DirectionContext';
 import type { ResearchConfigDto, ResearchRun } from '../types';
 
 const { mockApi } = vi.hoisted(() => ({
@@ -53,18 +54,21 @@ const run: ResearchRun = {
 
 function renderPage() {
   return render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <MemoryRouter>
-        <ResearchPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <DirectionProvider>
+          <MemoryRouter>
+            <ResearchPage />
+          </MemoryRouter>
+        </DirectionProvider>
+      </QueryClientProvider>,
   );
 }
 
 describe('ResearchPage', () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.clearAllMocks();
     mockApi.getResearchConfig.mockResolvedValue(config);
     mockApi.getResearchStatus.mockResolvedValue({ running: false, run: null });
@@ -146,5 +150,20 @@ describe('ResearchPage', () => {
     await waitFor(() => {
       expect(mockApi.startClassify).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('persists the current direction when switched', async () => {
+    renderPage();
+
+    const select = await screen.findByLabelText('当前研究方向');
+    await screen.findByRole('option', { name: '基于扩散模型的对抗攻击' });
+    expect(select).toHaveValue(GLOBAL_DIRECTION);
+
+    fireEvent.change(select, { target: { value: '基于扩散模型的对抗攻击' } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('当前研究方向')).toHaveValue('基于扩散模型的对抗攻击');
+    });
+    expect(localStorage.getItem('papers-direction')).toBe('基于扩散模型的对抗攻击');
   });
 });

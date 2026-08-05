@@ -24,6 +24,7 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
 
 const STATUS_LABEL: Record<ResearchPaperStatus, string> = {
   added: '已入库',
@@ -63,6 +64,7 @@ function directionCounts(dir: ResearchRunDirection): Record<ResearchPaperStatus,
 
 export default function ResearchPage() {
   const qc = useQueryClient();
+  const { direction, setDirection } = useDirection();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ResearchDirection | null>(null);
   const [name, setName] = useState('');
@@ -126,8 +128,9 @@ export default function ResearchPage() {
 
   const deleteMut = useMutation({
     mutationFn: (directionName: string) => api.deleteResearchDirection(directionName),
-    onSuccess: () => {
+    onSuccess: (_data, directionName) => {
       qc.invalidateQueries({ queryKey: ['research-config'] });
+      if (directionName === direction) setDirection(GLOBAL_DIRECTION);
       toast.success('研究方向已删除');
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : '删除失败'),
@@ -191,6 +194,22 @@ export default function ResearchPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              当前方向
+              <select
+                value={direction}
+                onChange={(e) => setDirection(e.target.value)}
+                aria-label="当前研究方向"
+                className="h-9 max-w-64 rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <option value={GLOBAL_DIRECTION}>全局</option>
+                {cfgQ.data?.directions.map((d) => (
+                  <option key={d.name} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Button variant="outline" disabled={running || checkMut.isPending} onClick={() => checkMut.mutate()}>
               {checkMut.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               立即检查
