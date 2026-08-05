@@ -10,6 +10,7 @@ export interface ArxivEntry {
   updated?: string;
   authors: string[];
   categories: string[];
+  doi?: string;
 }
 
 export function normalizeArxivId(id: string): string {
@@ -88,10 +89,22 @@ export async function searchArxiv(query: string, maxResults: number): Promise<Ar
     sortOrder: 'descending',
   });
   const url = `https://export.arxiv.org/api/query?${params.toString()}`;
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(60_000),
-    headers: { Accept: 'application/atom+xml' },
-  });
-  if (!res.ok) throw new Error(`arXiv API 请求失败 (HTTP ${res.status})`);
-  return parseAtom(await res.text());
+  // 对瞬时限流/过载做指数退避重试（arXiv 边缘层会按 IP/查询返回 429/503/504）。
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(60_000),
+      headers: { Accept: 'application/atom+xml' },
+    });
+    if (res.ok) return parseAtom(await res.text());
+    const retryable = res.status === 429 || res.status === 503 || res.status === 504;
+    if (retryable && attempt < 2) {
+      const retryAfter = Number(res.headers.get('retry-after'));
+      const waitMs =
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 3000 * (attempt + 1);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+    throw new Error(`arXiv API 请求失败 (HTTP ${res.status})`);
+  }
+  throw new Error('arXiv API 请求失败');
 }

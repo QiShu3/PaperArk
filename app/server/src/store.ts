@@ -6,7 +6,7 @@ import { readMeta, writeMeta } from './meta.js';
 import { extractTitle, listMdIds, rebuildIndex } from './indexMd.js';
 import { extractPdfToMd } from './mineru.js';
 import { parseMd } from './chunker.js';
-import { saveChunks } from './db.js';
+import { saveChunks, insertPaper, clearPaper } from './db.js';
 
 export interface Paper {
   id: string;
@@ -184,27 +184,37 @@ export async function createPaper(input: CreateInput): Promise<PaperDetail> {
   fs.mkdirSync(RAW_PDF_DIR, { recursive: true });
   fs.mkdirSync(MD_DIR, { recursive: true });
   fs.copyFileSync(input.pdfPath, destPdf);
+  try {
+    await extractPdfToMd(destPdf, input.id);
 
-  await extractPdfToMd(destPdf, input.id);
+    const mdPath = path.join(MD_DIR, `${input.id}.md`);
+    const mdContent = fs.readFileSync(mdPath, 'utf-8');
+    const { title, chunks } = parseMd(mdContent);
+    // chunks 表有指向 papers 表的外键，必须先建 papers 行再写 chunks
+    insertPaper(input.id, title, mdContent.length);
+    saveChunks(input.id, chunks);
 
-  const mdPath = path.join(MD_DIR, `${input.id}.md`);
-  const mdContent = fs.readFileSync(mdPath, 'utf-8');
-  const { chunks } = parseMd(mdContent);
-  saveChunks(input.id, chunks);
-
-  const meta = readMeta();
-  meta[input.id] = {
-    tags: input.tags ?? [],
-    addedAt: new Date().toISOString(),
-    notes: meta[input.id]?.notes,
-    venue: input.venue,
-    year: input.year,
-    area: input.area,
-    source: input.source,
-    directions: input.directions ?? [],
-  };
-  writeMeta(meta);
-  rebuildIndex();
+    const meta = readMeta();
+    meta[input.id] = {
+      tags: input.tags ?? [],
+      addedAt: new Date().toISOString(),
+      notes: meta[input.id]?.notes,
+      venue: input.venue,
+      year: input.year,
+      area: input.area,
+      source: input.source,
+      directions: input.directions ?? [],
+    };
+    writeMeta(meta);
+    rebuildIndex();
+  } catch (err) {
+    // 事务化：任一环节失败都清理半成品（rawPDF/MD/SQLite 行），
+    // 避免孤儿 MD 让论文以残缺状态出现在库中（listIds 以文件为准）
+    fs.rmSync(destPdf, { force: true });
+    fs.rmSync(path.join(MD_DIR, `${input.id}.md`), { force: true });
+    clearPaper(input.id);
+    throw err;
+  }
 
   const paper = getPaper(input.id);
   if (!paper) throw new Error('解析完成但未能读取生成的论文');

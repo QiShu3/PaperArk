@@ -27,6 +27,16 @@ const { storeMock } = vi.hoisted(() => ({
 
 vi.mock('../store.js', () => storeMock);
 
+const { paperClientMock } = vi.hoisted(() => ({
+  paperClientMock: {
+    paperSearchMcpEnabled: vi.fn<() => boolean>(() => false),
+    searchEntries: vi.fn<() => Promise<unknown>>(),
+    downloadWithFallback: vi.fn<() => Promise<unknown>>(),
+  },
+}));
+
+vi.mock('../paperClient.js', () => paperClientMock);
+
 function atomXml(entries: { id: string; title: string; published?: string }[]): string {
   const body = entries
     .map(
@@ -152,6 +162,10 @@ describe('research check pipeline', () => {
     storeMock.listPapers.mockReset();
     storeMock.listPapers.mockReturnValue([]);
     mockFetch.mockReset();
+    paperClientMock.paperSearchMcpEnabled.mockReset();
+    paperClientMock.paperSearchMcpEnabled.mockReturnValue(false);
+    paperClientMock.searchEntries.mockReset();
+    paperClientMock.downloadWithFallback.mockReset();
   });
 
   it('adds new papers and persists the run record', async () => {
@@ -313,5 +327,170 @@ describe('research check pipeline', () => {
     expect(run.status).toBe('success');
     expect(run.directions[0].error).toContain('arXiv timeout');
     expect(storeMock.createPaper).not.toHaveBeenCalled();
+  });
+});
+
+describe('paper-search MCP path', () => {
+  beforeEach(() => {
+    // 清理前面用例留下的 mineru-failed 标记，避免同一 arXiv ID 被判为 previously_failed
+    rmSync(join(tempDir, 'mineru-failed'), { recursive: true, force: true });
+    storeMock.createPaper.mockReset();
+    storeMock.createPaper.mockResolvedValue({ id: 'x', title: 'x' });
+    storeMock.listPapers.mockReset();
+    storeMock.listPapers.mockReturnValue([]);
+    mockFetch.mockReset();
+    paperClientMock.paperSearchMcpEnabled.mockReset();
+    paperClientMock.searchEntries.mockReset();
+    paperClientMock.downloadWithFallback.mockReset();
+  });
+
+  it('uses MCP search + download when enabled', async () => {
+    paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
+    paperClientMock.searchEntries.mockResolvedValue([
+      {
+        id: 'http://arxiv.org/abs/2607.28936v1',
+        arxivId: '2607.28936v1',
+        baseId: '2607.28936',
+        title: 'DiffAttack',
+        summary: 'Abstract of DiffAttack.',
+        published: '2026-07-31T00:00:00Z',
+        authors: ['Test Author'],
+        categories: ['cs.CV'],
+        doi: '10.1234/diffattack',
+      },
+    ]);
+    const mcpPdf = join(tempDir, 'mcp-download.pdf');
+    writeFileSync(mcpPdf, PDF_BYTES);
+    paperClientMock.downloadWithFallback.mockResolvedValue(mcpPdf);
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', query: 'diffusion adversarial attack', enabled: true }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers.map((p) => p.status)).toEqual(['added']);
+    expect(paperClientMock.searchEntries).toHaveBeenCalledWith('diffusion adversarial attack', 20);
+    expect(paperClientMock.downloadWithFallback).toHaveBeenCalledWith(
+      expect.objectContaining({ arxivId: '2607.28936v1', doi: '10.1234/diffattack' }),
+    );
+    expect(storeMock.createPaper).toHaveBeenCalledWith(
+      expect.objectContaining({ id: '2607.28936v1', area: '方向A', source: 'arxiv-auto' }),
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to arXiv direct when MCP search fails', async () => {
+    paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
+    paperClientMock.searchEntries.mockRejectedValue(new Error('mcp down'));
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes('/api/query')) {
+        return new Response(atomXml([{ id: '2607.28936v1', title: 'DiffAttack' }]), { status: 200 });
+      }
+      if (url.includes('/pdf/')) return pdfResponse();
+      return new Response('not found', { status: 404 });
+    });
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', query: 'diffusion adversarial attack', enabled: true }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers.map((p) => p.status)).toEqual(['added']);
+    expect(paperClientMock.searchEntries).toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalled();
+    expect(storeMock.createPaper).toHaveBeenCalledWith(expect.objectContaining({ id: '2607.28936v1' }));
+  });
+
+  it('falls back to arXiv direct when MCP download fails', async () => {
+    paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
+    paperClientMock.searchEntries.mockResolvedValue([
+      {
+        id: 'http://arxiv.org/abs/2607.28936v1',
+        arxivId: '2607.28936v1',
+        baseId: '2607.28936',
+        title: 'DiffAttack',
+        summary: 'Abstract.',
+        published: '2026-07-31T00:00:00Z',
+        authors: ['Test Author'],
+        categories: ['cs.CV'],
+      },
+    ]);
+    paperClientMock.downloadWithFallback.mockRejectedValue(new Error('mcp download down'));
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes('/api/query')) return new Response(atomXml([]), { status: 200 });
+      if (url.includes('/pdf/')) return pdfResponse();
+      return new Response('not found', { status: 404 });
+    });
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', query: 'diffusion adversarial attack', enabled: true }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers.map((p) => p.status)).toEqual(['added']);
+    expect(paperClientMock.downloadWithFallback).toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalled();
+    expect(storeMock.createPaper).toHaveBeenCalledWith(expect.objectContaining({ id: '2607.28936v1' }));
+  });
+
+  it('routes fielded arXiv queries to the direct API instead of MCP', async () => {
+    paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
+    const pdf = join(tempDir, 'fielded-download.pdf');
+    writeFileSync(pdf, PDF_BYTES);
+    paperClientMock.downloadWithFallback.mockResolvedValue(pdf);
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes('/api/query')) {
+        return new Response(atomXml([{ id: '2607.28936v1', title: 'DiffAttack' }]), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', query: 'abs:test', enabled: true }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers.map((p) => p.status)).toEqual(['added']);
+    expect(paperClientMock.searchEntries).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalled();
+    expect(paperClientMock.downloadWithFallback).toHaveBeenCalled();
+    expect(storeMock.createPaper).toHaveBeenCalledWith(expect.objectContaining({ id: '2607.28936v1' }));
+  });
+});
+
+describe('searchArxiv retry', () => {
+  it('retries transient 429 and succeeds', async () => {
+    const { searchArxiv } = await import('../arxiv.js');
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('rate limited', { status: 429, headers: { 'retry-after': '0' } }))
+      .mockResolvedValueOnce(
+        new Response(atomXml([{ id: '2607.28936v1', title: 'DiffAttack' }]), { status: 200 }),
+      );
+    vi.stubGlobal('fetch', f);
+    try {
+      const entries = await searchArxiv('abs:test', 10);
+      expect(f).toHaveBeenCalledTimes(2);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].baseId).toBe('2607.28936');
+    } finally {
+      vi.stubGlobal('fetch', mockFetch);
+    }
   });
 });

@@ -13,6 +13,7 @@ import * as settingsStore from './settingsStore.js';
 import * as research from './research.js';
 import * as researchConfig from './researchConfig.js';
 import * as classify from './classify.js';
+import * as paperClient from './paperClient.js';
 import cron from 'node-cron';
 import db, { insertPaper, saveChunks, chunkCount } from './db.js';
 import { parseMd } from './chunker.js';
@@ -311,6 +312,11 @@ if (!process.env.VITEST) {
   app.listen(PORT, () => {
     console.log(`API server running at http://localhost:${PORT}`);
   });
+  const shutdown = () => {
+    void paperClient.closePaperClient().finally(() => process.exit(0));
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
   const cfg = researchConfig.readResearchConfig();
   if (cron.validate(cfg.schedule.cron)) {
     cron.schedule(

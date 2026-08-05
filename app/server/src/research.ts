@@ -4,7 +4,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PAPERS_ROOT, RAW_PDF_DIR, MINERU_FAILED_DIR } from './paths.js';
 import { readResearchConfig } from './researchConfig.js';
-import { searchArxiv, normalizeArxivId } from './arxiv.js';
+import { searchArxiv, normalizeArxivId, type ArxivEntry } from './arxiv.js';
+import * as paperClient from './paperClient.js';
 import { createPaper, listPapers, updatePaper } from './store.js';
 import { classifyTitleAbstract } from './classify.js';
 import { readSettings } from './settingsStore.js';
@@ -15,6 +16,10 @@ const RUNS_LIMIT = 50;
 const ARXIV_DELAY_MS = 3000;
 const PDF_TIMEOUT_MS = 120_000;
 const SEARCH_TIMEOUT_MS = 60_000;
+
+// arXiv 原生字段前缀。paper-search-mcp 会把查询硬包成 `all:...`，
+// 字段化查询（如 abs:"..." AND ...）会被拼坏导致 arXiv 拒绝，因此这类查询绕过 MCP。
+const FIELDED_QUERY = /^(ti|au|abs|co|jr|cat|rn|id|all):/i;
 
 export type PaperStatus =
   | 'added'
@@ -98,6 +103,52 @@ async function downloadPdf(arxivId: string): Promise<string> {
   return tmp;
 }
 
+/**
+ * 搜索论文：优先走 paper-search MCP（多源回退、自带重试/UA），
+ * MCP 不可用时降级到 arXiv API 直连。
+ */
+async function searchForDirection(query: string, limit: number): Promise<ArxivEntry[]> {
+  const maxResults = Math.max(limit * 3, 20);
+  const fielded = FIELDED_QUERY.test(query.trim());
+  if (!fielded && paperClient.paperSearchMcpEnabled()) {
+    try {
+      const entries = await paperClient.searchEntries(query, maxResults);
+      logger.info({ query, count: entries.length }, 'paper-search MCP search ok');
+      return entries;
+    } catch (e) {
+      logger.warn({ err: e, query }, 'paper-search MCP search failed, falling back to arXiv direct');
+    }
+  } else if (fielded) {
+    logger.info({ query }, 'fielded arXiv query, skipping paper-search MCP');
+  }
+  return searchArxiv(query, maxResults);
+}
+
+/**
+ * 下载 PDF：优先走 paper-search MCP 的 download_with_fallback
+ * （源站 → OA 仓库 → Unpaywall），MCP 不可用时降级到 arxiv.org 直连。
+ */
+async function downloadPdfForEntry(entry: ArxivEntry): Promise<string> {
+  if (paperClient.paperSearchMcpEnabled()) {
+    try {
+      const pdfPath = await paperClient.downloadWithFallback({
+        arxivId: entry.arxivId,
+        doi: entry.doi,
+        title: entry.title,
+        savePath: os.tmpdir(),
+      });
+      const buf = fs.readFileSync(pdfPath);
+      if (buf.subarray(0, 4).toString('latin1') !== '%PDF') {
+        throw new Error('MCP 下载内容不是 PDF');
+      }
+      return pdfPath;
+    } catch (e) {
+      logger.warn({ err: e, arxivId: entry.arxivId }, 'paper-search MCP download failed, falling back to arXiv direct');
+    }
+  }
+  return downloadPdf(entry.arxivId);
+}
+
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
@@ -122,7 +173,7 @@ async function runCheck(runId: string): Promise<RunRecord> {
       try {
         await delay(arxivDelayMs());
         const limit = Math.max(1, dir.maxPerRun ?? cfg.maxPerRun);
-        const entries = await searchArxiv(dir.query, Math.max(limit * 3, 20));
+        const entries = await searchForDirection(dir.query, limit);
         const seen = new Set<string>();
         let processedNew = 0;
         for (const entry of entries) {
@@ -149,7 +200,7 @@ async function runCheck(runId: string): Promise<RunRecord> {
           if (processedNew >= limit) break;
           processedNew++;
           try {
-            const pdfPath = await downloadPdf(entry.arxivId);
+            const pdfPath = await downloadPdfForEntry(entry);
             try {
               await createPaper({
                 pdfPath,

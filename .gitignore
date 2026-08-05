@@ -13,6 +13,7 @@ MD/
 tmp/
 mineru-failed/
 filelist.txt
+scan-runs.json
 
 # Databases
 *.db

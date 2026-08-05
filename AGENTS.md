@@ -340,3 +340,82 @@ cron / POST /api/research/check → research.startCheck() (单飞)
 | 前端单元 + 集成 | 23 tests ✅ |
 | TypeScript 编译 | ✅ |
 | Vite 构建 | ✅ |
+
+---
+
+## Phase 6 — 复用 paper-search-mcp（MCP 客户端）
+
+### 功能
+
+自动收录的搜索/下载改为复用开源 [paper-search-mcp](https://github.com/openags/paper-search-mcp)（MIT，PyPI 独立包），服务器作为 **MCP 客户端** 通过 stdio 拉起 `uvx paper-search-mcp`：
+
+- **搜索**：`search_papers` 工具（固定 `sources: 'arxiv'`），自带 UA/重试/退避
+- **下载**：`download_with_fallback` 工具（源站 → OpenAIRE/CORE/EuropePMC/PMC → Unpaywall），**Sci-Hub 显式关闭**
+- **降级**：`PAPER_SEARCH_MCP_DISABLED=1` 或 MCP 进程/调用失败时，自动回退到原有 arXiv API 直连（`arxiv.ts`），流水线不中断
+- **防护**：下载后仍保留 `%PDF` magic 校验；方向间 3 秒延迟保留（MCP 的 arXiv 连接器无成功间隔限速）
+- **字段化查询绕过 MCP**：paper-search-mcp 会把查询硬包成 `all:...`，`abs:...`/`ti:...` 等 arXiv 原生字段语法会被拼坏（实测返回 0 篇且不报错）。`research.ts` 检测字段前缀（`/^(ti|au|abs|co|jr|cat|rn|id|all):/i`）直接走 arXiv API；纯关键词查询才走 MCP
+
+### 架构
+
+```
+research.ts (cron / POST /api/research/check)
+  ├─ searchForDirection()
+  │    ├─ paperClient.searchEntries()  → MCP search_papers
+  │    └─ 失败 → searchArxiv() 直连
+  ├─ downloadPdfForEntry()
+  │    ├─ paperClient.downloadWithFallback() → MCP download_with_fallback
+  │    └─ 失败 → downloadPdf() 直连
+  └─ createPaper → MinerU（不变）
+
+paperClient.ts（单例 + 懒启动 + 断线重建）
+  └─ @modelcontextprotocol/sdk Client + StdioClientTransport
+       └─ uvx paper-search-mcp
+```
+
+### 配置（环境变量）
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `PAPER_SEARCH_MCP_DISABLED` | 未设置 | `1` = 关闭 MCP 走 arXiv 直连 |
+| `PAPER_SEARCH_MCP_CMD` | `uvx` | MCP server 启动命令 |
+| `PAPER_SEARCH_MCP_ARGS` | `paper-search-mcp` | 启动参数（空格分隔） |
+
+可透传给子进程的可选 key（Unpaywall 邮箱、CORE key 等）后续按需添加。
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/paperClient.ts              (MCP 客户端：searchEntries / downloadWithFallback / closePaperClient)
+  app/server/src/__tests__/paperClient.test.ts (6 用例：参数、structuredContent、Sci-Hub 关闭、失败/缺文件抛错)
+
+修改:
+  app/server/package.json                     (+ @modelcontextprotocol/sdk)
+  app/server/src/arxiv.ts                     (ArxivEntry + doi?: string; searchArxiv 429/503/504 指数退避重试)
+  app/server/src/research.ts                  (searchForDirection / downloadPdfForEntry + MCP 降级)
+  app/server/src/index.ts                     (SIGINT/SIGTERM 时关闭 MCP 客户端)
+  app/server/src/__tests__/research.test.ts   (+ 3 用例：MCP 路径、搜索降级、下载降级)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 70 tests ✅（原 59 + 新增 11） |
+| 前端单元 + 集成 | 23 tests ✅ |
+| TypeScript 编译 | ✅ |
+
+### 真实联调记录（2026-08-04）
+
+- MCP 层已实测：`search_papers` 真实搜到 5 篇（plain query）；`download_with_fallback` 真实下载 38MB PDF（`%PDF` 校验通过）
+- 踩到 arXiv 边缘层（Google/Varnish）按 IP+查询串的 429：测试期间对同一精确查询重复请求触发；触发后同一 IP 短暂窗口内所有 arXiv 查询均 429。**生产每天 cron 每查询只发一次，不会触发**；`searchArxiv` 已加 429/503/504 指数退避重试兜底
+- `structuredContent` 实测形状为 `{ result: { ... } }`，paperClient 已做解包
+
+### 补充修复（2026-08-05，全链路联调发现）
+
+- **MinerU Windows spawn 失败**：npm 全局安装只生成 `.cmd/.ps1` 垫片（无 `.exe`），Node `spawn` 默认 `shell:false` 找不到 → `mineru.ts` 在 Windows 下改用单字符串命令 + `shell:true`（避免 args+shell 的注入警告）
+- **SQLite 外键崩溃**：`chunks.paper_id` 外键指向 `papers` 表，但 `createPaper` 写 chunks 前从未插入 `papers` 行（此前 MinerU 一直坏着，从未走到这步）→ `store.ts` 在 `saveChunks` 前补 `insertPaper`（幂等 UPSERT）
+- **半成品孤儿**：解析/入库任一步失败会残留 rawPDF/MD，而 `listIds()` 以文件为准，导致论文以残缺状态出现在库里 → `createPaper` 事务化，失败时清理 rawPDF/MD/SQLite 行再抛错
+- **运行数据不入库**：`scan-runs.json` 加入 `.gitignore`（运行时历史，保留 50 条）
+- **全链路实测**：13 篇论文经「搜索 → MCP 下载 → MinerU 解析 → 分块索引 → meta → AI 分类兜底」完整入库；唯一遗留 `2607.13336`（43MB）因 MinerU 云端处理超时（`download zip: context deadline exceeded`）反复失败，属云 API 大文件限制

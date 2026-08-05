@@ -7,9 +7,16 @@ import { MD_DIR, IMAGES_DIR } from './paths.js';
 
 function runMineru(pdfPath: string, outDir: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn('mineru-open-api', ['extract', pdfPath, '-o', outDir, '-f', 'md'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const args = ['extract', pdfPath, '-o', outDir, '-f', 'md'];
+    // npm 全局安装只生成 .cmd/.ps1 垫片（无 .exe），Node spawn 默认 shell:false
+    // 在 Windows 上无法直接执行，必须由 cmd.exe 解析；用单字符串命令避免 args+shell 的注入警告
+    const child =
+      process.platform === 'win32'
+        ? spawn(`mineru-open-api ${args.map((a) => `"${a}"`).join(' ')}`, {
+            shell: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+          })
+        : spawn('mineru-open-api', args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
     child.stdout.on('data', (d) => (out += d.toString()));
