@@ -186,6 +186,31 @@ describe('POST /api/chat', () => {
     expect(res.text).toContain('"tool_calls"');
   });
 
+  it('uses the base URL configured in settings.json', async () => {
+    writeFileSync(
+      join(tempDir, 'settings.json'),
+      JSON.stringify({ apiKey: 'x', model: 'v4-flash', baseUrl: 'https://relay.example.com/v1/' }),
+    );
+    mockFetch.mockClear();
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"id":"1","choices":[{"delta":{"content":"ok"}}]}\n\n'));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    mockFetch.mockResolvedValueOnce({ ok: true, body: streamBody });
+
+    await request(app)
+      .post('/api/chat')
+      .send({ model: 'v4-flash', messages: [{ role: 'user', content: 'hi' }], apiKey: 'test-key' })
+      .buffer(true);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toBe('https://relay.example.com/v1/chat/completions');
+  });
+
   it('returns 401 when DeepSeek returns error', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -200,6 +225,64 @@ describe('POST /api/chat', () => {
     });
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/chat/test', () => {
+  it('returns ok when the upstream responds', async () => {
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'pong' } }] }),
+    });
+
+    const res = await request(app)
+      .post('/api/chat/test')
+      .send({ apiKey: 'test-key', baseUrl: 'https://api.deepseek.com/v1', model: 'v4-flash' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.model).toBe('deepseek-v4-flash');
+    expect(typeof res.body.latencyMs).toBe('number');
+    expect(mockFetch.mock.calls[0][0]).toBe('https://api.deepseek.com/v1/chat/completions');
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.stream).toBe(false);
+    expect(body.max_tokens).toBe(5);
+  });
+
+  it('reports upstream errors with status', async () => {
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => '{"error":"invalid api key"}',
+    });
+
+    const res = await request(app)
+      .post('/api/chat/test')
+      .send({ apiKey: 'bad-key', baseUrl: 'https://api.deepseek.com/v1', model: 'v4-flash' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toContain('401');
+  });
+
+  it('rejects when no API key is provided', async () => {
+    writeFileSync(
+      join(tempDir, 'settings.json'),
+      JSON.stringify({ apiKey: '', model: 'v4-flash' }),
+    );
+    try {
+      const res = await request(app).post('/api/chat/test').send({ apiKey: '' });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(false);
+      expect(res.body.error).toContain('API Key');
+    } finally {
+      writeFileSync(
+        join(tempDir, 'settings.json'),
+        JSON.stringify({ apiKey: 'x', model: 'v4-flash', baseUrl: 'https://relay.example.com/v1/' }),
+      );
+    }
   });
 });
 

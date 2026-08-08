@@ -19,11 +19,11 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { useChatContext } from '../context/ChatContext';
-import MarkdownView from '../components/MarkdownView';
 import MdEditor from '../components/MdEditor';
 import PdfViewer from '../components/PdfViewer';
 import ChunkView from '../components/ChunkView';
 import TagEditor from '../components/TagEditor';
+import MdTranslationView from '../components/MdTranslationView';
 import ChatPanel from '../components/ChatPanel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import SettingsDialog, { getSettings, loadSettings, saveSettings } from '../components/SettingsDialog';
@@ -384,8 +384,9 @@ export default function PaperReader() {
                   }}
                 />
               ) : contentTab === 'md' ? (
-                <MarkdownView
-                  content={paper.markdown}
+                <MdTranslationView
+                  paperId={paper.id}
+                  markdown={paper.markdown}
                   onTextSelect={(text) => setQuoteTexts((prev) => [...prev, text])}
                 />
               ) : paper.hasPdf ? (

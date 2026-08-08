@@ -229,6 +229,123 @@ interface Props {
 
 ---
 
+## Phase 9 — 语义向量检索（2026-08-08）
+
+### 功能
+
+为 AI agent 增加高质量语义检索：关键词 FTS 之外，新增「bge-m3 向量召回 + bge-reranker-v2-m3 交叉编码器重排」链路，解决概念性提问与中英文跨语言检索：
+
+- **服务器推理**：模型部署在 GPU 服务器（`/home/qishu/project/vector-service/`，2×RTX 3090），本机通过 HTTP 调用（`/embed` + `/rerank`），空闲 15 分钟自动释放显存
+- **存储**：SQLite chunks 表新增 `embedding`（fp32 BLOB）与 `lexical`（稀疏权重 JSON）列；全库 1243 个 chunk 约 50 秒嵌入完成，精确暴力余弦（当前规模毫秒级，召回质量优于 ANN）
+- **检索流程**：问题向量化 → 向量余弦 top-50 → 远程 reranker 精排 → top-k；支持论文内与全库两种范围
+- **Agent 工具**：论文对话新增 `semantic_search_chunks`，全局对话新增 `semantic_search_library`，系统提示词指引 agent 概念性/跨语言问题优先语义检索
+- **自动维护**：手动上传 / 自动收录入库后自动增量嵌入
+- **可开关**：`VECTOR_SERVICE_DISABLED=1` 关闭；`VECTOR_SERVICE_URL` 配置服务地址（默认 `http://172.16.170.184:17888`）
+
+### API
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/vector/embed-all` | 全库批量嵌入（202，异步） |
+| GET | `/api/vector/status` | 嵌入状态（enabled/running/current/total/embedded） |
+| GET | `/api/papers/:id/semantic-search?q=&top_k=` | 论文内语义检索 |
+| GET | `/api/search/semantic?q=&top_k=` | 全库语义检索 |
+
+### 实测（2026-08-08）
+
+- 中文问题「攻击者如何判断某个样本是否在模型的训练集里？」FTS 返回空，语义检索命中 Threat Model / Empirical Privacy Evaluation 等关键段
+- 全库检索「扩散模型对抗攻击的常见方法有哪些？」跨论文命中 T2I 攻击、对抗采样等段落（重排分数 0.98+）
+- 服务器部署踩坑：hf-mirror 对 `.DS_Store` 403（跳过无用文件）、HF Xet 协议不支持（`HF_HUB_DISABLE_XET=1`）、transformers 5.x 不兼容（固定 4.49 + dtype→torch_dtype 兼容补丁）
+
+### 修改文件清单
+
+```
+新增:
+  vector-service/app.py                        (服务器 FastAPI：/embed + /rerank + 空闲卸载)
+  vector-service/requirements.txt / README.md
+  vector-service/prototype_compare.py          (原型对比脚本)
+  app/server/src/vectorStore.ts                (嵌入/语义检索客户端 + SQLite 向量存取)
+  app/server/src/__tests__/vectorStore.test.ts (7 用例)
+
+修改:
+  app/server/src/db.ts                         (chunks + embedding/lexical 列 + 查询函数)
+  app/server/src/index.ts                      (+ vector 路由 + 上传后自动嵌入)
+  app/server/src/research.ts                   (自动收录后自动嵌入)
+  app/web/src/types.ts / api.ts                (+ SemanticHit/EmbedStatus + 语义检索接口)
+  app/web/src/tools.ts / tools/globalTools.ts  (+ semantic_search_chunks / semantic_search_library)
+  app/web/src/components/ChatPanel.tsx         (系统提示词指引语义检索)
+  app/web/src/__tests__/tools.test.ts          (8 → 9 工具)
+  AGENTS.md / README.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 91 tests ✅（原 84 + 新增 7） |
+| 前端单元 + 集成 | 40 tests ✅ |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |
+
+---
+
+## Phase 8 — Markdown 直接翻译（2026-08-07）
+
+### 功能
+
+新增 **MD 直接翻译**（取代 Phase 7 的 BabelDOC PDF 翻译，后者已移除）：复用 MinerU 解析出的 Markdown，按段落分批调 LLM 翻译，速度约 1 分钟/篇：
+
+- **阅读页切换**：Markdown 标签内新增「原文 / 中文」切换，中文视图按需触发翻译并缓存
+- **格式保护**：系统提示词要求保留 Markdown 语法、LaTeX 公式（`$...$`/`$$...$$`）、图片引用、代码块、引用编号
+- **按段分批**：按标题分段、按字符数分批（默认 2800 字/批），不在公式/代码块中间断开
+- **缓存**：译文存 `md-translations/<id>.zh.md`，状态存 `md-translations.json`；重复打开不重翻
+- **健壮性**：空响应/429/5xx 自动重试 3 次（退避）；关闭思考（`thinking: disabled`）提速省 token，可用 `MD_TRANSLATE_THINKING=enabled` 关闭该参数
+- **单飞**：同一时间只翻译一篇，可取消/重试
+
+### API
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/papers/:id/translate-md` | 启动翻译（202；done 直接返回） |
+| GET | `/api/papers/:id/translate-md` | 状态 + 进度 + 译文内容 |
+| POST | `/api/papers/:id/translate-md/cancel` | 取消 |
+
+### 实测（2026-08-07）
+
+- `2605.15246v1` MD 全篇翻译 **85 秒**，输出 18.6k 字符；32 个行内公式、3 个块级公式、134 个引用编号完整保留
+- 中转站曾瞬时返回空内容，重试机制兜底后成功
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/translateMd.ts              (MD 翻译：分段/分批/重试/缓存/状态)
+  app/server/src/__tests__/translateMd.test.ts (10 用例)
+  app/web/src/components/MdTranslationView.tsx (阅读页原文/中文切换)
+  app/web/src/__tests__/MdTranslationView.test.tsx (5 用例)
+
+修改:
+  app/server/src/paths.ts                    (+ MD_TRANSLATION_DIR)
+  app/server/src/index.ts                    (+ translate-md 路由 + 删除清理)
+  app/web/src/types.ts / api.ts              (+ MdTranslation 类型与接口)
+  app/web/src/pages/PaperReader.tsx          (Markdown 标签接入 MdTranslationView)
+  app/server/src/index.ts / research.ts      (移除 BabelDOC PDF 翻译相关代码)
+  app/web/src/pages/PaperReader.tsx / ResearchPage.tsx (移除 PDF（中文）标签与翻译队列面板)
+  .gitignore                                 (+ md-translations/、md-translations.json)
+  AGENTS.md / README.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 84 tests ✅（124 - BabelDOC 40） |
+| 前端单元 + 集成 | 40 tests ✅（50 - BabelDOC 10） |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |
+
+---
+
 ## 研究方向自动收录 (Phase 5)
 
 ### 功能
@@ -419,3 +536,148 @@ paperClient.ts（单例 + 懒启动 + 断线重建）
 - **半成品孤儿**：解析/入库任一步失败会残留 rawPDF/MD，而 `listIds()` 以文件为准，导致论文以残缺状态出现在库里 → `createPaper` 事务化，失败时清理 rawPDF/MD/SQLite 行再抛错
 - **运行数据不入库**：`scan-runs.json` 加入 `.gitignore`（运行时历史，保留 50 条）
 - **全链路实测**：13 篇论文经「搜索 → MCP 下载 → MinerU 解析 → 分块索引 → meta → AI 分类兜底」完整入库；唯一遗留 `2607.13336`（43MB）因 MinerU 云端处理超时（`download zip: context deadline exceeded`）反复失败，属云 API 大文件限制
+
+---
+
+## Phase 7 — BabelDOC 版式保留 PDF 翻译（2026-08-05，2026-08-07 已移除）
+
+> **已移除**：Phase 8 引入 Markdown 直译后，BabelDOC PDF 翻译功能整体下线（后端 translate.ts、PDF（中文）标签、/research 翻译队列面板、全部相关 API 均已删除）。以下保留作为历史记录。
+
+### 功能
+
+论文入库即自动翻译，阅读页新增「PDF（中文）」标签查看中文版 PDF。复用本地安装的 [BabelDOC](https://github.com/funstory-ai/BabelDOC)（版式保留的中英对照 PDF 翻译库）：
+
+- **入库自动翻译**：手动上传 / 自动收录入库成功后，后台自动把论文加入翻译队列（FIFO，同一时间只跑一篇，BabelDOC 峰值内存 ~2GB）；已翻译过的论文自动跳过
+- **队列持久化**：排队中的论文写 `translations.json`（status `queued`），服务器重启后 `initPendingQueue()` 自动恢复未执行的任务
+- **PDF（中文）标签**：阅读页标签扩展为「Markdown / PDF / PDF（中文）/ 分块」，优先展示纯中文 PDF（mono），无 mono 时回退双语 dual
+- **状态可见**：翻译中/排队中显示进度并可取消；失败/未翻译时给出原因和「重新翻译」按钮（手动重试走 POST 立即启动）
+- **批量补翻**：/research 页「论文翻译队列」面板（`POST /api/translate/all`），把库中所有有 PDF 且未翻译的论文一次性入队，逐篇慢慢翻译
+- **进度展示**：/research 面板轮询 `GET /api/translate/status`，显示进行中的论文、阶段（解析 PDF/翻译段落/排版…）、已运行时长、百分比进度条，以及排队列表和各状态计数
+- **停止 / 重试**：`POST /api/translate/stop` 取消当前任务并清空队列（排队中记 cancelled）；`POST /api/translate/retry` 把 failed/cancelled 的论文重新入队
+- **复用 DeepSeek**：直接用 settings 里的 API key，模型映射与 chat 一致（`v4-flash → deepseek-v4-flash`）
+- **可配置 Base URL**：settings.json 增加 `baseUrl`（默认 `https://api.deepseek.com/v1`），设置对话框可填任意 OpenAI 兼容端点；chat / classify / translate 三个调用点统一读取
+- **连接测试**：设置对话框「测试连接」按钮（`POST /api/chat/test`），用表单当前值（无需保存）发一次 `max_tokens=5` 的最小请求，返回模型名与延迟
+- **可禁用**：`BABELDOC_DISABLED=1` 或找不到可执行文件时，自动翻译记 failed 但不阻塞入库
+
+### 架构
+
+```
+PaperReader → 内容标签: Markdown | PDF | PDF（中文）| 分块
+  └─ TranslatedPdfView (React)
+  ├─ GET  /api/papers/:id/translate    状态（3s 轮询）
+  ├─ POST /api/papers/:id/translate    手动重试（立即启动，忙时 409）
+  ├─ POST /api/papers/:id/translate/cancel
+  └─ /translations/<paperId>/*.pdf     express.static 下载
+
+入库（手动上传 POST /api/papers / research 自动收录）
+  └─ translate.scheduleTranslation(paperId)  → FIFO 队列
+       └─ runJob: spawn babeldoc --files rawPDF/<id>.pdf -o translations/<id>/
+            --openai --openai-base-url https://api.deepseek.com/v1
+            --openai-model deepseek-v4-flash --openai-api-key <settings.apiKey>
+            --watermark-output-mode no_watermark
+          env: USERPROFILE/HOME → .babeldoc-home（BabelDOC 硬编码 Path.home()/.cache/babeldoc）
+```
+
+### Windows 实测结论（2026-08-05）
+
+- 6 页论文全篇翻译约 303s，峰值内存 ~2GB，输出 dual + mono 各 6 页
+- **必须把 `USERPROFILE` 指到可写目录**（BabelDOC 把缓存硬编码到 `Path.home()/.cache/babeldoc`，沙箱/受限账号下启动即崩）
+- 首次运行需一次性下载资源（`babeldoc --warmup`，约 300MB：字体 + doclayout 版式模型），缓存在 `.babeldoc-home`
+- 文本层存在 CJK 兼容字形（`了`/`器`），渲染正常但复制出的字符非标准 Unicode（BabelDOC 上游行为）
+
+### 环境变量
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `BABELDOC_DISABLED` | 未设置 | `1` = 关闭翻译功能 |
+| `BABELDOC_BIN` | `<PAPERS_ROOT>/.babeldoc-env/Scripts/babeldoc(.exe)` | BabelDOC 可执行文件 |
+| `BABELDOC_HOME` | `<PAPERS_ROOT>/.babeldoc-home` | 缓存/资源目录（写入 USERPROFILE/HOME） |
+| `BABELDOC_TIMEOUT_MS` | `7200000` | 单篇翻译超时（毫秒） |
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/translate.ts             (翻译服务：配置/队列/spawn/状态/取消/清理)
+  app/server/src/__tests__/translate.test.ts (24 用例)
+  app/web/src/components/TranslatedPdfView.tsx (PDF（中文）标签内容：状态/轮询/下载/重试)
+  app/web/src/__tests__/TranslatedPdfView.test.tsx (6 用例)
+
+修改:
+  app/server/src/paths.ts                 (+ TRANSLATION_DIR)
+  app/server/src/index.ts                 (+ /translations 静态 + translate 路由 + 入库自动调度 + 启动恢复队列 + 删除清理 + 关闭钩子)
+  app/server/src/research.ts              (自动收录入库后 scheduleTranslation)
+  app/server/src/settingsStore.ts         (+ baseUrl 字段，默认 https://api.deepseek.com/v1)
+  app/server/src/chat.ts / classify.ts    (读取 settings.baseUrl 拼 chat/completions)
+  app/web/src/types.ts                    (+ TranslationRecord/Outputs/Options)
+  app/web/src/api.ts                      (+ startTranslate/getTranslateStatus/cancelTranslate)
+  app/web/src/pages/PaperReader.tsx       (标签切换加入 PDF（中文）)
+  app/web/src/pages/PaperList.tsx         (设置入口；批量翻译已移到 /research)
+  app/web/src/pages/ResearchPage.tsx      (+「论文翻译队列」面板：进度/停止/重试)
+  app/web/src/components/SettingsDialog.tsx (+ API Base URL 输入框)
+  .gitignore                              (+ translations/、.babeldoc-*、.uv-*)
+  AGENTS.md / README.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 111 tests ✅（原 70 + 新增 41） |
+| 前端单元 + 集成 | 45 tests ✅（原 31 + 新增 14） |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |
+
+---
+
+## Phase 10 — 前端整体迁移到 Ant Design X + antd v6（2026-08-08）
+
+### 功能
+
+新增 `app/web-next` 前端（pnpm 包 `@papers/web-next`），将旧 `app/web`（Tailwind v4 + Radix）整体重构为 **Ant Design X + antd v6**，彻底移除 Tailwind：
+
+- **技术栈**：React 19.2.8 + antd 6.5.4 + @ant-design/x 2.9 + @ant-design/x-markdown 2.9 + @ant-design/icons 6（全部原生支持 React 19，无需 v5-patch）
+- **聊天界面**：`Bubble.List`（user/assistant placement + Avatar）、`Sender` + `Suggestion`（输入区）、`ThoughtChain`（工具调用链，成功/失败样式）、`Conversations`（会话列表）、`Welcome`/`Prompts`（空态/快捷指令）
+- **Markdown**：`@ant-design/x-markdown` + 官方 `Latex` 插件（marked + KaTeX，支持 `$`/`$$`/`\(\)`/`\[\]`），替代 react-markdown；`lib/markdown.tsx` 封装统一入口（图片路径 `/MD/images/` 重写）
+- **数据流**：保留原 `ChatContext` + `sendMessage` 循环（方案 A，业务逻辑拷贝复用，未采用 useXChat）
+- **样式**：antd Design Token（`theme.ts` 明暗两套）+ CSS Modules，无 Tailwind；toast 用 antd `App.useApp().message`
+- **页面**：PaperList / PaperReader / GlobalChat / ResearchPage 全部重写为 antd 组件
+
+### 切换
+
+- `server/src/paths.ts`：`WEB_DIST` → `web-next/dist`
+- 根 `package.json`：`dev`/`build`/`typecheck` 默认走 web-next；旧 web 保留为 `dev:web`/`build:web`/`typecheck:web`
+- dev 端口：web-next 为 **5174**（proxy /api /rawPDF /MD → 3001）
+
+### 修改文件清单
+
+```
+新增:
+  app/web-next/  (package.json / vite.config.ts / vitest.config.ts / tsconfig.json / index.html)
+  app/web-next/src/main.tsx / theme.ts / index.css / test-setup.ts / App.tsx
+  app/web-next/src/lib/markdown.tsx  (XMarkdown 封装 + Latex 插件 + resolveImage)
+  app/web-next/src/lib/settings.ts   (getSettings/loadSettings/saveSettings)
+  app/web-next/src/pages/{PaperList,PaperReader,GlobalChat,ResearchPage}.tsx
+  app/web-next/src/components/{ChatPanel,SessionSidebar,SettingsDialog,UploadDialog,
+    TagEditor,MdTranslationView,MarkdownView,ChunkView,MdEditor,PdfViewer,ErrorBoundary}.tsx
+  app/web-next/src/__tests__/{PaperList,ResearchPage,SettingsDialog,MdTranslationView}.test.tsx
+
+拷贝复用（纯业务逻辑）:
+  app/web-next/src/api.ts / types.ts / tools.ts / tools/globalTools.ts
+  app/web-next/src/context/{ChatContext,DirectionContext}.tsx
+  app/web-next/src/__tests__/{tools,ChatContext,DirectionContext}.test.ts(x)
+
+修改:
+  app/pnpm-workspace.yaml           (+ web-next)
+  app/package.json                  (dev/build/typecheck → web-next；旧 web 保留为 :web)
+  app/server/src/paths.ts           (WEB_DIST → web-next/dist)
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| web-next 单元 + 集成 | 41 tests ✅（3 拷贝 + 4 重写） |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅（JS gzip ~530KB，含 antd 全量） |
+| 旧 web 回归 | 未动，可随时回退 |

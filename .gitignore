@@ -6,6 +6,7 @@ node_modules/
 # Build output
 dist/
 app/web/dist/
+__pycache__/
 
 # Knowledge base data (PDF / MinerU Markdown / images)
 rawPDF/
@@ -14,6 +15,18 @@ tmp/
 mineru-failed/
 filelist.txt
 scan-runs.json
+translations/
+translations.json
+md-translations/
+md-translations.json
+
+# BabelDOC 翻译运行时（本地虚拟环境 / 模型字体缓存 / uv 工具链）
+.babeldoc-env/
+.babeldoc-home/
+.babeldoc-out/
+.uv-cache/
+.uv-python/
+.uv-tools/
 
 # Databases
 *.db

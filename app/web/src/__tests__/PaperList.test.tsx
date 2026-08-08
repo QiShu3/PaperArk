@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import PaperList from '../pages/PaperList';
@@ -12,6 +12,8 @@ const { mockApi } = vi.hoisted(() => ({
     listTags: vi.fn(),
     search: vi.fn(),
     getResearchConfig: vi.fn(),
+    getSettings: vi.fn(),
+    saveSettings: vi.fn(),
   },
 }));
 
@@ -71,6 +73,11 @@ describe('PaperList', () => {
     mockApi.listPapers.mockResolvedValue(papers);
     mockApi.listTags.mockResolvedValue(tags);
     mockApi.getResearchConfig.mockResolvedValue(config);
+    mockApi.getSettings.mockResolvedValue({
+      apiKey: '',
+      model: 'v4-flash',
+      baseUrl: 'https://api.deepseek.com/v1',
+    });
   });
 
   it('shows added date, year and direction info on paper rows', async () => {
@@ -131,6 +138,47 @@ describe('PaperList', () => {
     expect(screen.queryByText(/更多/)).not.toBeInTheDocument();
   });
 
+  it('filters papers by accepted (中刊) badge', async () => {
+    const acceptedPapers: Paper[] = [
+      {
+        id: '2607.20001',
+        title: '已中刊论文',
+        tags: [],
+        addedAt: '2026-08-04T10:00:00.000Z',
+        venue: 'CVPR',
+        hasMd: true,
+        hasPdf: true,
+      },
+      {
+        id: '2607.20002',
+        title: '未中刊论文',
+        tags: [],
+        addedAt: '2026-08-04T11:00:00.000Z',
+        venue: '未收录',
+        hasMd: true,
+        hasPdf: true,
+      },
+      {
+        id: '2607.20003',
+        title: '无刊物论文',
+        tags: [],
+        addedAt: '2026-08-04T12:00:00.000Z',
+        hasMd: false,
+        hasPdf: false,
+      },
+    ];
+    mockApi.listPapers.mockResolvedValue(acceptedPapers);
+    renderPage();
+
+    await screen.findByText('已中刊论文');
+    fireEvent.click(screen.getByText('已中刊'));
+
+    expect(screen.getByText('已中刊论文')).toBeInTheDocument();
+    expect(screen.queryByText('未中刊论文')).not.toBeInTheDocument();
+    expect(screen.queryByText('无刊物论文')).not.toBeInTheDocument();
+    expect(screen.getByText('共 1 篇论文')).toBeInTheDocument();
+  });
+
   it('sorts by newest added first by default and can switch to earliest', async () => {
     renderPage();
 
@@ -158,5 +206,15 @@ describe('PaperList', () => {
     expect(await screen.findByText('Papers 知识库')).toBeInTheDocument();
     expect(await screen.findByText('Zeta Paper')).toBeInTheDocument();
     expect(screen.getByText('Alpha Paper')).toBeInTheDocument();
+  });
+
+  it('opens the settings dialog from the home page', async () => {
+    renderPage();
+
+    await screen.findByText('Zeta Paper');
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+
+    expect(await screen.findByText('API Base URL')).toBeInTheDocument();
+    expect(screen.getByText('API Key')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -10,9 +10,10 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings,
 } from 'lucide-react';
 import { api } from '../api';
-import type { Paper } from '../types';
+import type { Paper, Settings as SettingsType } from '../types';
 import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -20,6 +21,7 @@ import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Skeleton } from '../components/ui/skeleton';
 import UploadDialog from '../components/UploadDialog';
+import SettingsDialog, { getSettings, loadSettings, saveSettings } from '../components/SettingsDialog';
 
 function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
   return (
@@ -148,9 +150,21 @@ export default function PaperList() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
   const [autoOnly, setAutoOnly] = useState(false);
+  const [acceptedOnly, setAcceptedOnly] = useState(false);
   const [yearFilter, setYearFilter] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('addedDesc');
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<SettingsType>(getSettings);
+
+  useEffect(() => {
+    loadSettings().then(setSettings).catch(() => {});
+  }, []);
+
+  const handleSettingsChange = (s: SettingsType) => {
+    setSettings(s);
+    saveSettings(s);
+  };
 
   const papersQ = useQuery({ queryKey: ['papers'], queryFn: api.listPapers });
   const tagsQ = useQuery({ queryKey: ['tags'], queryFn: api.listTags });
@@ -194,9 +208,10 @@ export default function PaperList() {
         (!yearFilter || p.year === yearFilter) &&
         (!selectedVenues.length || (p.venue && selectedVenues.includes(p.venue))) &&
         (!autoOnly || p.source === 'arxiv-auto') &&
+        (!acceptedOnly || (p.venue && p.venue !== '未收录')) &&
         selectedTags.every((t) => p.tags.includes(t)),
     );
-  }, [baseList, selectedTags, selectedVenues, autoOnly, activeDirection, yearFilter]);
+  }, [baseList, selectedTags, selectedVenues, autoOnly, acceptedOnly, activeDirection, yearFilter]);
 
   const sorted = useMemo(() => sortPapers(filtered, sortBy), [filtered, sortBy]);
 
@@ -228,6 +243,9 @@ export default function PaperList() {
             <Button variant="outline" onClick={() => navigate('/research')}>
               <RefreshCw /> 研究方向
             </Button>
+            <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)} title="设置" aria-label="设置">
+              <Settings className="size-4" />
+            </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Plus /> 新增论文
             </Button>
@@ -258,6 +276,13 @@ export default function PaperList() {
                 onClick={() => setAutoOnly((v) => !v)}
               >
                 自动收录
+              </Badge>
+              <Badge
+                variant={acceptedOnly ? 'default' : 'outline'}
+                className="cursor-pointer select-none px-2.5 py-1 text-sm"
+                onClick={() => setAcceptedOnly((v) => !v)}
+              >
+                已中刊
               </Badge>
               {venueCounts.map(([v, count]) => {
                 const active = selectedVenues.includes(v);
@@ -331,7 +356,7 @@ export default function PaperList() {
 
           {!loading && !error && filtered.length === 0 && (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              {searching || selectedTags.length > 0 || selectedVenues.length > 0
+              {searching || autoOnly || acceptedOnly || selectedTags.length > 0 || selectedVenues.length > 0
                 ? '没有匹配的论文'
                 : '知识库暂无论文,点击右上角新增'}
             </p>
@@ -347,6 +372,12 @@ export default function PaperList() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         onCreated={(id) => navigate(`/paper/${id}`)}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
       />
     </div>
   );

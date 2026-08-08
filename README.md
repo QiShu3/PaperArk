@@ -10,6 +10,9 @@
 - **研究方向自动收录**：配置研究方向后，系统每天定时（默认 09:00 Asia/Shanghai）自动从 arXiv 搜索最新论文 → 下载 → 解析 → 入库，全程无人值守
 - **AI 自动分类**：新论文按标题+摘要自动打研究方向标签，支持多方向归属与全局方向筛选
 - **多源下载回退**：复用开源 [paper-search-mcp](https://github.com/openags/paper-search-mcp)（MCP 协议），下载按「源站 → CORE/EuropePMC/PMC → Unpaywall」顺序回退，官方源不可用时也能拿到 OA 全文
+- **Markdown 直译**：阅读页 Markdown 标签内一键「中文」切换，直接把 MinerU 解析的 Markdown 翻译成中文（约 1 分钟/篇），公式、图片引用、引用编号原样保留
+- **语义向量检索**：AI 对话新增语义检索（bge-m3 向量 + bge-reranker 重排，部署在 GPU 服务器），概念性提问与中英文跨语言检索效果显著优于关键词
+- **可配置 API 端点**：设置里可自行填写 API Key 与 Base URL（默认 DeepSeek，兼容任意 OpenAI 端点），对话 / AI 分类 / MD 翻译统一使用
 
 ## 架构
 
@@ -113,6 +116,20 @@ cd app/web && npm run dev
 - 论文阅读页：针对当前论文提问（工具：分块搜索/取段/列图等）
 - `/chat` 全局对话：跨论文提问，右侧面板可搜索并引用论文
 
+### Markdown 中文阅读
+
+论文阅读页的 Markdown 标签内点「中文」即可按需翻译当前论文（译文缓存在 `md-translations/`），翻译期间显示进度、可取消；之后随时切回「原文」。公式、表格、图片引用与引用编号均原样保留。
+
+### 语义检索（AI 对话）
+
+论文对话与全局对话都新增语义检索工具（`semantic_search_chunks` / `semantic_search_library`）：问题向量化 → 向量召回 → 交叉编码器重排。向量模型部署在 GPU 服务器（`/home/qishu/project/vector-service/`），本机 SQLite 存向量，入库自动增量嵌入。
+
+### 自定义 API 端点
+
+设置对话框可填写 API Key 与 API Base URL（任意 OpenAI 兼容端点）。Base URL 默认 `https://api.deepseek.com/v1`，模型统一映射为 `deepseek-v4-flash` / `deepseek-v4-pro`。
+
+填写后可直接点「测试连接」验证（发一次最小请求，显示响应模型与延迟），确认可用再保存。
+
 ## 环境变量与配置
 
 | 变量 | 默认 | 说明 |
@@ -123,6 +140,8 @@ cd app/web && npm run dev
 | `PAPER_SEARCH_MCP_ARGS` | `paper-search-mcp` | MCP server 启动参数 |
 | `CLASSIFY_MODEL` | `v4-flash` | AI 分类所用 DeepSeek 模型 |
 | `RESEARCH_ARXIV_DELAY_MS` | `3000` | 搜索方向间的礼貌间隔（ms） |
+| `VECTOR_SERVICE_URL` | `http://172.16.170.184:17888` | 向量服务地址 |
+| `VECTOR_SERVICE_DISABLED` | 未设置 | `1` = 关闭语义检索 |
 
 MinerU token 读取顺序：`--token` 参数 > `MINERU_TOKEN` 环境变量 > `~/.mineru/config.yaml`。
 
@@ -136,6 +155,9 @@ Papers/
 ├── papers.json          # 论文元数据（标题/方向/年份/来源等）
 ├── research.json        # 研究方向配置（缺省时用内置默认）
 ├── scan-runs.json       # 自动收录运行历史（已 gitignore）
+├── md-translations/     # Markdown 中文译文（已 gitignore）
+├── md-translations.json # MD 翻译状态索引（已 gitignore）
+├── vector-service/      # 向量服务代码（部署到 GPU 服务器）
 ├── rawPDF/              # PDF 原文（按 arXiv ID 命名，gitignore）
 ├── MD/                  # MinerU 解析的 Markdown + 图片（gitignore）
 ├── mineru-failed/       # 解析失败待重试的 PDF（gitignore）
@@ -145,8 +167,8 @@ Papers/
 ## 测试
 
 ```bash
-cd app/server && npm test    # 70 个用例（单元 + 集成 + API）
-cd app/web && npm test       # 23 个用例（单元 + 集成）
+cd app/server && npm test    # 91 个用例（单元 + 集成 + API）
+cd app/web && npm test       # 40 个用例（单元 + 集成）
 ```
 
 ## 已知限制

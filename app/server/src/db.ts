@@ -110,6 +110,18 @@ for (const col of ['tool_results']) {
   }
 }
 
+// 向量检索：chunks 增加 embedding（fp32 BLOB）与 lexical（稀疏权重 JSON）
+try {
+  db.exec('ALTER TABLE chunks ADD COLUMN embedding BLOB');
+} catch {
+  // column already exists, skip
+}
+try {
+  db.exec('ALTER TABLE chunks ADD COLUMN lexical TEXT');
+} catch {
+  // column already exists, skip
+}
+
 // Migration: fix CHECK constraint to include 'tool' role
 try {
   const info = db.prepare(
@@ -192,6 +204,74 @@ export function saveChunks(
 export function chunkCount(paperId: string): number {
   const row = db.prepare('SELECT COUNT(*) AS cnt FROM chunks WHERE paper_id = ?').get(paperId) as { cnt: number };
   return row.cnt;
+}
+
+export interface ChunkForEmbedding {
+  id: number;
+  paper_id: string;
+  chunk_index: number;
+  heading: string;
+  content: string;
+}
+
+export function listChunksForEmbedding(paperId?: string): ChunkForEmbedding[] {
+  if (paperId) {
+    return db
+      .prepare(
+        `SELECT id, paper_id, chunk_index, heading, content FROM chunks WHERE paper_id = ? ORDER BY chunk_index`,
+      )
+      .all(paperId) as ChunkForEmbedding[];
+  }
+  return db
+    .prepare(`SELECT id, paper_id, chunk_index, heading, content FROM chunks ORDER BY paper_id, chunk_index`)
+    .all() as ChunkForEmbedding[];
+}
+
+export function updateChunkVector(id: number, embedding: Buffer, lexical: string | null): void {
+  db.prepare('UPDATE chunks SET embedding = ?, lexical = ? WHERE id = ?').run(embedding, lexical, id);
+}
+
+export function countEmbeddedChunks(): number {
+  const row = db
+    .prepare('SELECT COUNT(*) AS cnt FROM chunks WHERE embedding IS NOT NULL')
+    .get() as { cnt: number };
+  return row.cnt;
+}
+
+export function listChunkVectors(paperId?: string): {
+  id: number;
+  paper_id: string;
+  heading: string;
+  content: string;
+  chunk_index: number;
+  embedding: Buffer;
+}[] {
+  const rows = paperId
+    ? (db
+        .prepare(
+          `SELECT id, paper_id, chunk_index, heading, content, embedding FROM chunks WHERE paper_id = ? AND embedding IS NOT NULL ORDER BY chunk_index`,
+        )
+        .all(paperId) as {
+        id: number;
+        paper_id: string;
+        heading: string;
+        content: string;
+        chunk_index: number;
+        embedding: Buffer;
+      }[])
+    : (db
+        .prepare(
+          `SELECT id, paper_id, chunk_index, heading, content, embedding FROM chunks WHERE embedding IS NOT NULL`,
+        )
+        .all() as {
+        id: number;
+        paper_id: string;
+        heading: string;
+        content: string;
+        chunk_index: number;
+        embedding: Buffer;
+      }[]);
+  return rows;
 }
 
 export function closeDb(): void {

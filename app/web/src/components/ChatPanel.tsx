@@ -61,6 +61,7 @@ function buildGlobalSystemPrompt(quoteTexts?: string[], direction?: string): str
 - list_papers() — 列出所有论文概览
 - get_paper_chunk(paper_id, target) — 读取指定论文的段落
 - list_paper_chunks(paper_id) — 查看论文目录
+- semantic_search_library(query) — 全库语义检索（适合概念性、跨语言问题）
 
 回答规则：
 1. 无论文上下文时正常对话
@@ -84,6 +85,7 @@ function buildSystemPrompt(
 
   const toolList = `你可以调用以下工具来获取更多信息：
 - search_chunks(query) — 在论文分段中全文搜索
+- semantic_search_chunks(query) — 按语义检索论文分段（适合概念性、跨语言问题，如中文问题查英文论文）
 - get_chunk(target) — 获取指定分段的完整内容
 - get_current_chunk() — 获取用户当前浏览的分段内容
 - list_chunks() — 列出所有分段标题

@@ -9,18 +9,23 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import type { Settings } from '@/types';
 import { api } from '@/api';
 
 const KEY = 'papers-settings';
+const DEFAULT_BASE_URL = 'https://api.deepseek.com/v1';
 
 export function getSettings(): Settings {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { apiKey: raw.apiKey || '', model: raw.model || 'v4-flash' };
+    return {
+      apiKey: raw.apiKey || '',
+      model: raw.model || 'v4-flash',
+      baseUrl: raw.baseUrl || DEFAULT_BASE_URL,
+    };
   } catch {
-    return { apiKey: '', model: 'v4-flash' };
+    return { apiKey: '', model: 'v4-flash', baseUrl: DEFAULT_BASE_URL };
   }
 }
 
@@ -47,21 +52,46 @@ interface Props {
 export default function SettingsDialog({ open, onOpenChange, settings, onSettingsChange }: Props) {
   const [apiKey, setApiKey] = useState(settings.apiKey);
   const [model, setModel] = useState(settings.model);
+  const [baseUrl, setBaseUrl] = useState(settings.baseUrl || DEFAULT_BASE_URL);
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
     setApiKey(settings.apiKey);
     setModel(settings.model);
+    setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL);
   }, [settings]);
 
   const handleSave = async () => {
     setSaving(true);
-    const next: Settings = { apiKey: apiKey.trim(), model };
+    const next: Settings = { apiKey: apiKey.trim(), model, baseUrl: baseUrl.trim() || DEFAULT_BASE_URL };
     saveSettings(next);
     onSettingsChange(next);
     onOpenChange(false);
     setSaving(false);
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const r = await api.testSettings({
+        apiKey: apiKey.trim(),
+        model,
+        baseUrl: baseUrl.trim() || DEFAULT_BASE_URL,
+      });
+      setTestResult(
+        r.ok
+          ? { ok: true, message: `连接成功：${r.model} 响应 ${r.latencyMs ?? '-'}ms` }
+          : { ok: false, message: r.error || '连接失败' },
+      );
+    } catch (e) {
+      setTestResult({ ok: false, message: e instanceof Error ? e.message : '连接失败' });
+    } finally {
+      setTesting(false);
+    }
   };
 
   return (
@@ -119,14 +149,55 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
             </p>
           </div>
 
-          <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-            API Key 保存在服务端 settings.json，通过后端代理转发至 DeepSeek
-            API，全程不经过第三方服务器。
+          <div className="space-y-2">
+            <Label>API Base URL</Label>
+            <Input
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder={DEFAULT_BASE_URL}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              任意 OpenAI 兼容端点（如 DeepSeek、代理或中转服务），模型统一使用
+              deepseek-v4-flash / deepseek-v4-pro。
+            </p>
           </div>
 
-          <Button onClick={handleSave} className="w-full" disabled={saving}>
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null} 保存
-          </Button>
+          <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            API Key 与 Base URL 保存在服务端 settings.json，通过后端代理转发，
+            全程不经过第三方服务器。
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleTest}
+              disabled={testing || !apiKey.trim()}
+              className="flex-1"
+              title="用当前填写的 Key / Base URL 发送一次最小请求验证"
+            >
+              {testing ? <Loader2 className="size-4 animate-spin" /> : null} 测试连接
+            </Button>
+            <Button onClick={handleSave} className="flex-1" disabled={saving}>
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null} 保存
+            </Button>
+          </div>
+          {testResult && (
+            <p
+              className={`flex items-start gap-1.5 rounded-md px-3 py-2 text-xs ${
+                testResult.ok
+                  ? 'bg-green-500/10 text-green-600'
+                  : 'bg-destructive/10 text-destructive'
+              }`}
+            >
+              {testResult.ok ? (
+                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
+              ) : (
+                <XCircle className="mt-0.5 size-3.5 shrink-0" />
+              )}
+              <span className="break-all">{testResult.message}</span>
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

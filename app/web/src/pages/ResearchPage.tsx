@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
 import type {
@@ -84,7 +91,6 @@ export default function ResearchPage() {
     queryFn: api.getClassifyStatus,
     refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
   });
-
   const openCreate = () => {
     setEditing(null);
     setName('');

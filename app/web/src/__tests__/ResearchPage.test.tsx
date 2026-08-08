@@ -166,4 +166,5 @@ describe('ResearchPage', () => {
     });
     expect(localStorage.getItem('papers-direction')).toBe('基于扩散模型的对抗攻击');
   });
+
 });

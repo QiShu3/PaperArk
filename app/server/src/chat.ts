@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from './db.js';
+import { readSettings, normalizeBaseUrl } from './settingsStore.js';
 import { logger, getRequestId } from './logger.js';
 
 const router = Router();
@@ -55,6 +56,67 @@ const logStmt = db.prepare(
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 );
 
+// 连接测试：用表单当前填的值（无需先保存）发一次最小请求，验证 API 可用
+router.post('/chat/test', async (req: Request, res: Response) => {
+  const raw = req.body as Record<string, unknown> | undefined;
+  const settings = readSettings();
+  const apiKey =
+    typeof raw?.apiKey === 'string' && raw.apiKey.trim() ? raw.apiKey.trim() : settings.apiKey;
+  const baseUrl = normalizeBaseUrl(raw?.baseUrl ?? settings.baseUrl);
+  const model = toModel(
+    typeof raw?.model === 'string' && raw.model ? raw.model : settings.model,
+  );
+
+  if (!apiKey) {
+    res.json({ ok: false, error: '请先填写 API Key' });
+    return;
+  }
+
+  const startedAt = Date.now();
+  try {
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 5,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const latencyMs = Date.now() - startedAt;
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      res.json({
+        ok: false,
+        status: resp.status,
+        latencyMs,
+        error: `HTTP ${resp.status}${text ? `：${text.slice(0, 200)}` : ''}`,
+      });
+      return;
+    }
+    const data = (await resp.json().catch(() => null)) as {
+      choices?: { message?: { content?: string } }[];
+    } | null;
+    if (!data) {
+      res.json({ ok: false, latencyMs, error: '响应解析失败：不是有效的 JSON' });
+      return;
+    }
+    const reply = data.choices?.[0]?.message?.content?.slice(0, 100);
+    logger.info({ model, baseUrl, latencyMs }, 'api connection test ok');
+    res.json({ ok: true, model, latencyMs, reply: reply || '' });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    logger.warn({ err: e, baseUrl }, 'api connection test failed');
+    res.json({ ok: false, latencyMs: Date.now() - startedAt, error: message });
+  }
+});
+
 router.post('/chat', async (req: Request, res: Response) => {
   const startTime = Date.now();
   const raw = req.body as Record<string, unknown> | undefined;
@@ -103,7 +165,8 @@ router.post('/chat', async (req: Request, res: Response) => {
       body.tools = tools;
     }
 
-    const resp = await fetchWithRetry('https://api.deepseek.com/v1/chat/completions', {
+    const baseUrl = readSettings().baseUrl;
+    const resp = await fetchWithRetry(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

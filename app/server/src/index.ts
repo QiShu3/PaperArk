@@ -14,6 +14,8 @@ import * as research from './research.js';
 import * as researchConfig from './researchConfig.js';
 import * as classify from './classify.js';
 import * as paperClient from './paperClient.js';
+import * as translateMd from './translateMd.js';
+import * as vectorStore from './vectorStore.js';
 import cron from 'node-cron';
 import db, { insertPaper, saveChunks, chunkCount } from './db.js';
 import { parseMd } from './chunker.js';
@@ -78,6 +80,11 @@ app.post('/api/papers', upload.single('pdf'), async (req, res) => {
     const year = String(req.body.year || '').trim() || undefined;
     const area = String(req.body.area || '').trim() || undefined;
     const paper = await store.createPaper({ pdfPath: req.file.path, id, tags, venue, year, area });
+    if (vectorStore.vectorEnabled()) {
+      void vectorStore.embedPaper(paper.id).catch((e) =>
+        logger.warn({ err: e, paperId: paper.id }, 'auto embedding failed'),
+      );
+    }
     void classify
       .classifyPaperById(paper.id)
       .then((directions) => {
@@ -102,8 +109,68 @@ app.put('/api/papers/:id', (req, res) => {
 app.delete('/api/papers/:id', (req, res) => {
   if (req.params.id === '__global__') return res.status(403).json({ error: '不能删除全局会话数据' });
   chatStore.deleteByPaper(req.params.id);
+  translateMd.cleanupMdPaper(req.params.id);
   store.deletePaper(req.params.id);
   res.json({ ok: true });
+});
+
+app.post('/api/papers/:id/translate-md', (req, res) => {
+  try {
+    res.status(202).json(translateMd.startMdTranslation(req.params.id));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    const status = /没有 Markdown|不存在/.test(message) ? 404 : /正在翻译|正在进行/.test(message) ? 409 : 400;
+    res.status(status).json({ error: message });
+  }
+});
+
+app.get('/api/papers/:id/translate-md', (req, res) => {
+  const record = translateMd.getMdTranslationStatus(req.params.id);
+  res.json({
+    ...record,
+    content: record.status === 'done' ? translateMd.readMdTranslation(req.params.id) : undefined,
+  });
+});
+
+app.post('/api/papers/:id/translate-md/cancel', (req, res) => {
+  res.json(translateMd.cancelMdTranslation(req.params.id));
+});
+
+app.post('/api/vector/embed-all', (_req, res) => {
+  try {
+    void vectorStore.embedAll().catch((e) =>
+      logger.warn({ err: e }, 'library embedding failed'),
+    );
+    res.status(202).json({ started: true });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.get('/api/vector/status', (_req, res) => {
+  res.json(vectorStore.getEmbedStatus());
+});
+
+app.get('/api/papers/:id/semantic-search', async (req, res) => {
+  try {
+    const q = String(req.query.q ?? '').trim();
+    if (!q) return res.status(400).json({ error: '缺少 query' });
+    const topK = Math.min(10, Math.max(1, Number(req.query.top_k) || 5));
+    res.json(await vectorStore.semanticSearch(q, req.params.id, topK));
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.get('/api/search/semantic', async (req, res) => {
+  try {
+    const q = String(req.query.q ?? '').trim();
+    if (!q) return res.status(400).json({ error: '缺少 query' });
+    const topK = Math.min(10, Math.max(1, Number(req.query.top_k) || 5));
+    res.json(await vectorStore.semanticSearch(q, undefined, topK));
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
 });
 
 app.get('/api/papers/:id/chunks', (req, res) => {

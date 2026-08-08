@@ -85,6 +85,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   vi.unstubAllGlobals();
+  const { closeDb } = await import('../db.js');
+  closeDb();
   rmSync(tempDir, { recursive: true, force: true });
 });
 

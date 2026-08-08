@@ -9,6 +9,7 @@ import * as paperClient from './paperClient.js';
 import { createPaper, listPapers, updatePaper } from './store.js';
 import { classifyTitleAbstract } from './classify.js';
 import { readSettings } from './settingsStore.js';
+import * as vectorStore from './vectorStore.js';
 import { logger } from './logger.js';
 
 const RUNS_FILE = path.join(PAPERS_ROOT, 'scan-runs.json');
@@ -230,6 +231,11 @@ async function runCheck(runId: string): Promise<RunRecord> {
                 updatePaper(entry.arxivId, { directions: matched });
               } catch (e) {
                 logger.warn({ err: e, arxivId: entry.arxivId }, 'failed to persist directions');
+              }
+              if (vectorStore.vectorEnabled()) {
+                void vectorStore.embedPaper(entry.arxivId).catch((e) =>
+                  logger.warn({ err: e, arxivId: entry.arxivId }, 'auto embedding failed'),
+                );
               }
               result.papers.push({
                 id: entry.baseId,

@@ -3,10 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "concurrently -k -n server,web -c blue,green \"pnpm --filter @papers/server dev\" \"pnpm --filter @papers/web dev\"",
-    "build": "pnpm --filter @papers/web build",
+    "dev": "concurrently -k -n server,web -c blue,green \"pnpm --filter @papers/server dev\" \"pnpm --filter @papers/web-next dev\"",
+    "dev:web": "concurrently -k -n server,web -c blue,green \"pnpm --filter @papers/server dev\" \"pnpm --filter @papers/web dev\"",
+    "build": "pnpm --filter @papers/web-next build",
+    "build:web": "pnpm --filter @papers/web build",
     "start": "pnpm --filter @papers/server start",
-    "typecheck": "pnpm --filter @papers/web typecheck && pnpm --filter @papers/server typecheck"
+    "typecheck": "pnpm --filter @papers/web-next typecheck && pnpm --filter @papers/server typecheck",
+    "typecheck:web": "pnpm --filter @papers/web typecheck && pnpm --filter @papers/server typecheck"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

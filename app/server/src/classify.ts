@@ -58,6 +58,7 @@ export async function classifyTitleAbstract(
   abstract: string,
   directions: string[],
   apiKey: string,
+  baseUrl = 'https://api.deepseek.com/v1',
 ): Promise<string[]> {
   if (directions.length === 0) return [];
   const prompt = `你是论文研究方向分类器。请判断下面这篇论文属于以下哪些研究方向（可多选，也可以一个都不选）。
@@ -70,7 +71,7 @@ ${directions.map((d, i) => `${i + 1}. ${d}`).join('\n')}
 
 只返回 JSON，格式为 {"directions": ["研究方向完整名称"]}，名称必须严格来自上面的列表，不要解释。`;
 
-  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+  const resp = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -112,7 +113,7 @@ export async function classifyPaperById(id: string): Promise<string[]> {
   const cfg = readResearchConfig();
   const directionNames = cfg.directions.map((d) => d.name);
   if (!settings.apiKey || directionNames.length === 0) return [];
-  return classifyTitleAbstract(title, abstract, directionNames, settings.apiKey);
+  return classifyTitleAbstract(title, abstract, directionNames, settings.apiKey, settings.baseUrl);
 }
 
 export function classifyLibrary(): Promise<void> {
@@ -146,7 +147,13 @@ async function runClassify(directionNames: string[], apiKey: string): Promise<vo
       try {
         const md = getRawMarkdown(id);
         const { title, abstract } = extractTitleAndAbstract(md);
-        const result = await classifyTitleAbstract(title, abstract, directionNames, apiKey);
+        const result = await classifyTitleAbstract(
+          title,
+          abstract,
+          directionNames,
+          apiKey,
+          readSettings().baseUrl,
+        );
         const meta = readMeta();
         meta[id] = { ...(meta[id] ?? { tags: [] }), directions: result };
         writeMeta(meta);
