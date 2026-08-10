@@ -5,6 +5,7 @@ import { App, Button, Flex, Input, Skeleton, Segmented, Space, Tag, Typography }
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
+  DownOutlined,
   EditOutlined,
   FileTextOutlined,
   FireOutlined,
@@ -13,6 +14,7 @@ import {
   SaveOutlined,
   SettingOutlined,
   ThunderboltOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import { api } from '../api';
 import { useChatContext } from '../context/ChatContext';
@@ -41,6 +43,7 @@ export default function PaperReader() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [contentTab, setContentTab] = useState<'md' | 'pdf' | 'chunk'>('md');
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsType>(getSettings);
   const [quoteTexts, setQuoteTexts] = useState<string[]>([]);
@@ -156,15 +159,45 @@ export default function PaperReader() {
   return (
     <Flex vertical style={{ height: '100vh' }}>
       <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(5,5,5,0.06)' }}>
-        <Flex align="flex-start" justify="space-between" gap={16}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Flex align="center" gap={8}>
-              <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')} aria-label="返回" />
-              <Typography.Title level={5} style={{ margin: 0 }} ellipsis>
-                {paper.title}
-              </Typography.Title>
-            </Flex>
-            <Flex gap={12} wrap align="center" style={{ marginTop: 4, paddingLeft: 40 }}>
+        <Flex align="center" justify="space-between" gap={16}>
+          <Flex align="center" gap={8} style={{ flex: 1, minWidth: 0 }}>
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')} aria-label="返回" />
+            <Typography.Title level={5} style={{ margin: 0 }} ellipsis>
+              {paper.title}
+            </Typography.Title>
+          </Flex>
+
+          <Space>
+            <Button
+              type="text"
+              icon={detailsOpen ? <UpOutlined /> : <DownOutlined />}
+              onClick={() => setDetailsOpen((v) => !v)}
+              title={detailsOpen ? '折叠详细信息' : '展开详细信息'}
+            />
+            <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} title="设置" />
+            {editing ? (
+              <>
+                <Button onClick={() => setEditing(false)}>取消</Button>
+                <Button type="primary" onClick={() => saveMut.mutate()} loading={saveMut.isPending} icon={<SaveOutlined />}>
+                  保存
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button icon={<EditOutlined />} onClick={startEdit}>
+                  编辑
+                </Button>
+                <Button danger onClick={handleDelete}>
+                  删除
+                </Button>
+              </>
+            )}
+          </Space>
+        </Flex>
+
+        {(detailsOpen || editingMeta) && (
+          <div style={{ paddingLeft: 40 }}>
+            <Flex gap={12} wrap align="center" style={{ marginTop: 12 }}>
               <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'monospace' }}>
                 {paper.id}
               </Typography.Text>
@@ -179,7 +212,7 @@ export default function PaperReader() {
             </Flex>
 
             {(paper.venue || paper.year || paper.area || paper.source === 'arxiv-auto') && !editingMeta && (
-              <Flex gap={6} wrap align="center" style={{ marginTop: 6, paddingLeft: 40 }}>
+              <Flex gap={6} wrap align="center" style={{ marginTop: 6 }}>
                 {paper.source === 'arxiv-auto' && (
                   <Tag icon={<ThunderboltOutlined />} color="gold" style={{ fontSize: 11, marginRight: 0 }}>
                     自动收录
@@ -205,7 +238,7 @@ export default function PaperReader() {
             )}
 
             {editingMeta && (
-              <Flex gap={8} align="center" style={{ marginTop: 6, paddingLeft: 40 }}>
+              <Flex gap={8} align="center" style={{ marginTop: 6 }}>
                 <Input size="small" style={{ width: 140 }} placeholder="会议/期刊" value={metaDraft.venue ?? ''} onChange={(e) => setMetaDraft((d) => ({ ...d, venue: e.target.value }))} />
                 <Input size="small" style={{ width: 90 }} placeholder="年份" value={metaDraft.year ?? ''} onChange={(e) => setMetaDraft((d) => ({ ...d, year: e.target.value }))} />
                 <Input size="small" style={{ width: 120 }} placeholder="研究方向" value={metaDraft.area ?? ''} onChange={(e) => setMetaDraft((d) => ({ ...d, area: e.target.value }))} />
@@ -217,48 +250,27 @@ export default function PaperReader() {
             )}
 
             {(paper.venue || paper.year || paper.area) ? null : !editingMeta && (
-              <Button type="link" size="small" style={{ paddingLeft: 40 }} onClick={startEditMeta}>
+              <Button type="link" size="small" style={{ padding: 0, marginTop: 6 }} onClick={startEditMeta}>
                 <EditOutlined /> 添加发表信息
               </Button>
             )}
+
+            <Flex align="center" gap={16} style={{ marginTop: 12 }}>
+              <TagEditor tags={paper.tags} onChange={saveTags} />
+              {paper.hasMd && !editing && (
+                <Segmented
+                  value={contentTab}
+                  onChange={(v) => setContentTab(v as 'md' | 'pdf' | 'chunk')}
+                  options={[
+                    { label: 'Markdown', value: 'md' },
+                    ...(paper.hasPdf ? [{ label: 'PDF', value: 'pdf' as const }] : []),
+                    { label: '分块', value: 'chunk' },
+                  ]}
+                />
+              )}
+            </Flex>
           </div>
-
-          <Space>
-            <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} title="设置" />
-            {editing ? (
-              <>
-                <Button onClick={() => setEditing(false)}>取消</Button>
-                <Button type="primary" onClick={() => saveMut.mutate()} loading={saveMut.isPending} icon={<SaveOutlined />}>
-                  保存
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button icon={<EditOutlined />} onClick={startEdit}>
-                  编辑
-                </Button>
-                <Button danger onClick={handleDelete}>
-                  删除
-                </Button>
-              </>
-            )}
-          </Space>
-        </Flex>
-
-        <Flex align="center" gap={16} style={{ marginTop: 12, paddingLeft: 40 }}>
-          <TagEditor tags={paper.tags} onChange={saveTags} />
-          {paper.hasMd && !editing && (
-            <Segmented
-              value={contentTab}
-              onChange={(v) => setContentTab(v as 'md' | 'pdf' | 'chunk')}
-              options={[
-                { label: 'Markdown', value: 'md' },
-                ...(paper.hasPdf ? [{ label: 'PDF', value: 'pdf' as const }] : []),
-                { label: '分块', value: 'chunk' },
-              ]}
-            />
-          )}
-        </Flex>
+        )}
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
