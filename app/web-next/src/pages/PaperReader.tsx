@@ -12,7 +12,6 @@ import {
   HomeOutlined,
   LinkOutlined,
   SaveOutlined,
-  SettingOutlined,
   SwapOutlined,
   ThunderboltOutlined,
   UpOutlined,
@@ -26,7 +25,6 @@ import TagEditor from '../components/TagEditor';
 import MdTranslationView from '../components/MdTranslationView';
 import ChatPanel from '../components/ChatPanel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import SettingsDialog from '../components/SettingsDialog';
 import { getSettings, loadSettings, saveSettings } from '../lib/settings';
 import type { Settings as SettingsType } from '../types';
 
@@ -45,7 +43,6 @@ export default function PaperReader() {
   const [draft, setDraft] = useState('');
   const [contentTab, setContentTab] = useState<'md' | 'pdf' | 'chunk'>('md');
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsType>(getSettings);
   const [quoteTexts, setQuoteTexts] = useState<string[]>([]);
   const [chunkContent, setChunkContent] = useState('');
@@ -217,7 +214,6 @@ export default function PaperReader() {
           onQuotesClear={() => setQuoteTexts([])}
           contentMode={contentTab === 'chunk' ? 'chunk' : 'full'}
           chunkHeading={chunkHeading}
-          onOpenSettings={() => setSettingsOpen(true)}
         />
       </ErrorBoundary>
     </div>
@@ -241,7 +237,6 @@ export default function PaperReader() {
               onClick={() => setDetailsOpen((v) => !v)}
               title={detailsOpen ? '折叠详细信息' : '展开详细信息'}
             />
-            <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} title="设置" />
             {editing ? (
               <>
                 <Button onClick={() => setEditing(false)}>取消</Button>
@@ -390,12 +385,6 @@ export default function PaperReader() {
         )}
       </div>
 
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        settings={settings}
-        onSettingsChange={handleSettingsChange}
-      />
     </Flex>
   );
 }

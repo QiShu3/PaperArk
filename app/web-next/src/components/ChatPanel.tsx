@@ -12,15 +12,12 @@ import {
   type ThoughtChainItemType,
 } from '@ant-design/x';
 import {
-  ArrowUpOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
   RobotOutlined,
-  SettingOutlined,
-  StopOutlined,
   ThunderboltOutlined,
   UndoOutlined,
   UserOutlined,
@@ -250,7 +247,6 @@ interface Props {
   mode?: 'paper' | 'global';
   inputValue?: string;
   onInputChange?: (value: string) => void;
-  onOpenSettings?: () => void;
 }
 
 const roles = {
@@ -281,7 +277,6 @@ export default function ChatPanel({
   mode = 'paper',
   inputValue,
   onInputChange,
-  onOpenSettings,
 }: Props) {
   const { message, modal } = App.useApp();
   const isGlobal = mode === 'global';
@@ -795,15 +790,6 @@ export default function ChatPanel({
             disabled={isStreaming || sessions.length <= 1}
             title="删除当前对话"
           />
-          {onOpenSettings && (
-            <Button
-              type="text"
-              size="small"
-              icon={<SettingOutlined />}
-              onClick={onOpenSettings}
-              title="设置"
-            />
-          )}
         </Space>
       </Flex>
 
@@ -967,28 +953,19 @@ export default function ChatPanel({
                 if (input.trim()) handleSend();
               }}
               footer={
-                <Flex justify="space-between" align="center">
-                  <Space size={4}>
-                    <select
-                      value={model}
-                      onChange={(e) => onModelChange(e.target.value)}
-                      style={{ fontSize: 12, border: '1px solid #d9d9d9', borderRadius: 6, padding: '2px 6px', background: 'transparent', color: 'rgba(0,0,0,0.65)' }}
-                    >
-                      <option value="v4-flash">v4-flash</option>
-                      <option value="v4-pro">v4-pro</option>
-                    </select>
-                    {!isStreaming && messages.some((m) => m.role === 'user') && (
-                      <Button type="text" size="small" icon={<UndoOutlined />} onClick={() => void handleUndo()} title="回退上一轮对话" />
-                    )}
-                  </Space>
-                  <Space size={4}>
-                    {isStreaming ? (
-                      <Button type="text" size="small" icon={<StopOutlined />} onClick={handleStop} title="停止生成" />
-                    ) : (
-                      <Button type="primary" shape="circle" size="small" icon={<ArrowUpOutlined />} onClick={handleSend} disabled={!input.trim() || !apiKey} />
-                    )}
-                  </Space>
-                </Flex>
+                <Space size={4}>
+                  <select
+                    value={model}
+                    onChange={(e) => onModelChange(e.target.value)}
+                    style={{ fontSize: 12, border: '1px solid #d9d9d9', borderRadius: 6, padding: '2px 6px', background: 'transparent', color: 'rgba(0,0,0,0.65)' }}
+                  >
+                    <option value="v4-flash">v4-flash</option>
+                    <option value="v4-pro">v4-pro</option>
+                  </select>
+                  {!isStreaming && messages.some((m) => m.role === 'user') && (
+                    <Button type="text" size="small" icon={<UndoOutlined />} onClick={() => void handleUndo()} title="回退上一轮对话" />
+                  )}
+                </Space>
               }
             />
           )}

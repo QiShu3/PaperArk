@@ -11,7 +11,6 @@ import { api } from '@/api';
 import type { Paper } from '@/types';
 import ChatPanel from '@/components/ChatPanel';
 import SessionSidebar from '@/components/SessionSidebar';
-import SettingsDialog from '@/components/SettingsDialog';
 import { getSettings, loadSettings, saveSettings } from '@/lib/settings';
 import { useQuery } from '@tanstack/react-query';
 
@@ -30,7 +29,6 @@ export default function GlobalChat() {
   } = useChatContext();
 
   const [settings, setSettings] = useState(getSettings);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -123,7 +121,6 @@ export default function GlobalChat() {
             onNewSession={handleNewSession}
             onDeleteSession={handleDeleteSession}
             onRenameSession={handleRenameSession}
-            onOpenSettings={() => setSettingsOpen(true)}
             width={240}
           />
         )}
@@ -148,7 +145,6 @@ export default function GlobalChat() {
             onQuotesClear={() => {}}
             inputValue={inputText}
             onInputChange={setInputText}
-            onOpenSettings={() => setSettingsOpen(true)}
           />
         </div>
 
@@ -236,12 +232,6 @@ export default function GlobalChat() {
         )}
       </Flex>
 
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        settings={settings}
-        onSettingsChange={handleSettingsChange}
-      />
     </Flex>
   );
 }

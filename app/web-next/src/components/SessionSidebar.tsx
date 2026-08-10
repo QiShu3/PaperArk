@@ -14,7 +14,6 @@ interface SessionSidebarProps {
   onNewSession: () => void;
   onDeleteSession: (sessionId: string) => void;
   onRenameSession: (sessionId: string, title: string) => void;
-  onOpenSettings: () => void;
   isStreaming?: boolean;
   width?: number;
 }
@@ -26,7 +25,6 @@ export default function SessionSidebar({
   onNewSession,
   onDeleteSession,
   onRenameSession,
-  onOpenSettings,
   isStreaming = false,
   width = 240,
 }: SessionSidebarProps) {
@@ -100,11 +98,6 @@ export default function SessionSidebar({
           onActiveChange={(key) => onSessionSelect(String(key))}
           menu={menu}
         />
-      </div>
-      <div style={{ padding: 12, borderTop: '1px solid rgba(5,5,5,0.06)' }}>
-        <Button type="text" block icon={<SettingOutlined />} onClick={onOpenSettings}>
-          设置
-        </Button>
       </div>
     </div>
   );
