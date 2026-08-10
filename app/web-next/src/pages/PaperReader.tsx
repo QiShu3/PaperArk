@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App, Button, Flex, Input, Skeleton, Segmented, Space, Tag, Typography } from 'antd';
+import { App, Button, Flex, Input, Skeleton, Segmented, Space, Splitter, Tag, theme, Typography } from 'antd';
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
@@ -13,6 +13,7 @@ import {
   LinkOutlined,
   SaveOutlined,
   SettingOutlined,
+  SwapOutlined,
   ThunderboltOutlined,
   UpOutlined,
 } from '@ant-design/icons';
@@ -51,6 +52,15 @@ export default function PaperReader() {
   const [chunkHeading, setChunkHeading] = useState('');
   const [editingMeta, setEditingMeta] = useState(false);
   const [metaDraft, setMetaDraft] = useState<{ venue?: string; year?: string; area?: string }>({});
+  const [swapped, setSwapped] = useState(false);
+  const [splitSizes, setSplitSizes] = useState<[number, number]>([50, 50]);
+  const [swapHover, setSwapHover] = useState(false);
+  const { token } = theme.useToken();
+
+  const toggleSwap = () => {
+    setSwapped((s) => !s);
+    setSplitSizes(([a, b]) => [b, a]);
+  };
 
   const startEditMeta = () => {
     setMetaDraft({ venue: paper?.venue, year: paper?.year, area: paper?.area });
@@ -155,6 +165,63 @@ export default function PaperReader() {
       </Flex>
     );
   }
+
+  const contentPanel = (
+    <div
+      style={{
+        height: '100%',
+        minWidth: 0,
+        overflowY: 'auto',
+        padding: 20,
+        ...(swapped
+          ? { borderLeft: '1px solid rgba(5,5,5,0.06)' }
+          : { borderRight: '1px solid rgba(5,5,5,0.06)' }),
+      }}
+    >
+      {contentTab === 'chunk' ? (
+        <ChunkView
+          paperId={paper.id}
+          onActiveChunkChange={(heading, content) => {
+            setChunkHeading(heading);
+            setChunkContent(content);
+          }}
+        />
+      ) : contentTab === 'md' ? (
+        <MdTranslationView
+          paperId={paper.id}
+          markdown={paper.markdown}
+          onTextSelect={(text) => setQuoteTexts((prev) => [...prev, text])}
+        />
+      ) : paper.hasPdf ? (
+        <PdfViewer url={`/rawPDF/${paper.id}.pdf`} title={paper.title} />
+      ) : (
+        <Flex align="center" justify="center" style={{ height: '100%' }}>
+          <Typography.Text type="secondary">无 PDF 文件</Typography.Text>
+        </Flex>
+      )}
+    </div>
+  );
+
+  const chatPanel = (
+    <div style={{ height: '100%', minWidth: 0, minHeight: 0 }}>
+      <ErrorBoundary>
+        <ChatPanel
+          paperId={paper.id}
+          paperTitle={paper.title}
+          paperContent={contentTab === 'chunk' ? chunkContent : paper.markdown}
+          apiKey={settings.apiKey}
+          model={settings.model}
+          onModelChange={(m) => handleSettingsChange({ ...settings, model: m })}
+          quoteTexts={quoteTexts}
+          onQuoteRemove={(i) => setQuoteTexts((prev) => prev.filter((_, j) => j !== i))}
+          onQuotesClear={() => setQuoteTexts([])}
+          contentMode={contentTab === 'chunk' ? 'chunk' : 'full'}
+          chunkHeading={chunkHeading}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      </ErrorBoundary>
+    </div>
+  );
 
   return (
     <Flex vertical style={{ height: '100vh' }}>
@@ -279,50 +346,47 @@ export default function PaperReader() {
             <MdEditor value={draft} onChange={setDraft} />
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: '100%' }}>
-            <div style={{ minWidth: 0, overflowY: 'auto', borderRight: '1px solid rgba(5,5,5,0.06)', padding: 20 }}>
-              {contentTab === 'chunk' ? (
-                <ChunkView
-                  paperId={paper.id}
-                  onActiveChunkChange={(heading, content) => {
-                    setChunkHeading(heading);
-                    setChunkContent(content);
-                  }}
-                />
-              ) : contentTab === 'md' ? (
-                <MdTranslationView
-                  paperId={paper.id}
-                  markdown={paper.markdown}
-                  onTextSelect={(text) => setQuoteTexts((prev) => [...prev, text])}
-                />
-              ) : paper.hasPdf ? (
-                <PdfViewer url={`/rawPDF/${paper.id}.pdf`} title={paper.title} />
-              ) : (
-                <Flex align="center" justify="center" style={{ height: '100%' }}>
-                  <Typography.Text type="secondary">无 PDF 文件</Typography.Text>
-                </Flex>
-              )}
-            </div>
-
-            <div style={{ minWidth: 0, minHeight: 0 }}>
-              <ErrorBoundary>
-                <ChatPanel
-                  paperId={paper.id}
-                  paperTitle={paper.title}
-                  paperContent={contentTab === 'chunk' ? chunkContent : paper.markdown}
-                  apiKey={settings.apiKey}
-                  model={settings.model}
-                  onModelChange={(m) => handleSettingsChange({ ...settings, model: m })}
-                  quoteTexts={quoteTexts}
-                  onQuoteRemove={(i) => setQuoteTexts((prev) => prev.filter((_, j) => j !== i))}
-                  onQuotesClear={() => setQuoteTexts([])}
-                  contentMode={contentTab === 'chunk' ? 'chunk' : 'full'}
-                  chunkHeading={chunkHeading}
-                  onOpenSettings={() => setSettingsOpen(true)}
-                />
-              </ErrorBoundary>
-            </div>
-          </div>
+          <Splitter
+            style={{ height: '100%' }}
+            onResize={(sizes) => setSplitSizes([sizes[0], sizes[1]])}
+            draggerIcon={
+              <div
+                title="交换左右位置"
+                role="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={toggleSwap}
+                onMouseEnter={() => setSwapHover(true)}
+                onMouseLeave={() => setSwapHover(false)}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  background: swapHover ? token.colorPrimary : token.colorBgContainer,
+                  color: swapHover ? '#fff' : token.colorTextSecondary,
+                  border: `1px solid ${swapHover ? 'transparent' : token.colorBorderSecondary}`,
+                  boxShadow: token.boxShadowTertiary,
+                  transition: 'all 0.2s',
+                  fontSize: 14,
+                }}
+              >
+                <SwapOutlined />
+              </div>
+            }
+            styles={{
+              dragger: { default: { width: 34, height: '100%', background: 'transparent' } },
+            }}
+          >
+            <Splitter.Panel size={splitSizes[0]} min="25%">
+              {swapped ? chatPanel : contentPanel}
+            </Splitter.Panel>
+            <Splitter.Panel size={splitSizes[1]} min="25%">
+              {swapped ? contentPanel : chatPanel}
+            </Splitter.Panel>
+          </Splitter>
         )}
       </div>
 
