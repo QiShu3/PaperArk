@@ -8,7 +8,9 @@
     "start": "NODE_ENV=production tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke:src": "tsx scripts/smoke-mcp.ts",
+    "smoke:dl": "tsx scripts/smoke-download.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

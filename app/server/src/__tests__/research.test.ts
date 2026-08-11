@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vites
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Paper } from '../store.js';
 
 let tempDir: string;
 let research: typeof import('../research.js');
@@ -20,7 +21,7 @@ const { storeMock } = vi.hoisted(() => ({
         source?: string;
       }) => Promise<unknown>
     >(),
-    listPapers: vi.fn<() => { id: string }[]>(() => []),
+    listPapers: vi.fn<() => Partial<Paper>[]>(() => []),
     updatePaper: vi.fn(),
   },
 }));
@@ -32,6 +33,7 @@ const { paperClientMock } = vi.hoisted(() => ({
     paperSearchMcpEnabled: vi.fn<() => boolean>(() => false),
     searchEntries: vi.fn<() => Promise<unknown>>(),
     downloadWithFallback: vi.fn<() => Promise<unknown>>(),
+    fetchPdfUrl: vi.fn<() => Promise<unknown>>(),
   },
 }));
 
@@ -123,7 +125,8 @@ describe('research config', () => {
     const cfg = researchConfig.readResearchConfig();
     expect(cfg.schedule.cron).toBe('0 9 * * *');
     expect(cfg.directions.length).toBeGreaterThan(0);
-    expect(cfg.directions[0].query).toContain('diffusion model');
+    expect(cfg.directions[0].queries[0].source).toBe('arxiv');
+    expect(cfg.directions[0].queries[0].query).toContain('diffusion model');
   });
 
   it('keeps an explicit empty direction list', () => {
@@ -140,20 +143,48 @@ describe('research config', () => {
     expect(cfg.maxPerRun).toBe(2);
   });
 
-  it('adds, updates and deletes directions', () => {
-    const dir = researchConfig.addDirection({ name: '测试方向', query: 'abs:test', maxPerRun: 9 });
+  it('migrates legacy single-query directions to arxiv queries', () => {
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '旧方向', query: 'abs:legacy', enabled: true }],
+      }),
+    );
+    const cfg = researchConfig.readResearchConfig();
+    expect(cfg.directions[0].queries).toEqual([{ source: 'arxiv', query: 'abs:legacy' }]);
+  });
+
+  it('adds, updates and deletes directions with queries', () => {
+    const dir = researchConfig.addDirection({
+      name: '测试方向',
+      queries: [{ source: 'openalex', query: 'test' }],
+      maxPerRun: 9,
+    });
     expect(dir.enabled).toBe(true);
     expect(dir.maxPerRun).toBe(9);
-    expect(() => researchConfig.addDirection({ name: '测试方向', query: 'abs:dup' })).toThrow(/已存在/);
-    expect(() => researchConfig.addDirection({ name: '', query: 'abs:x' })).toThrow(/不能为空/);
+    expect(dir.queries).toEqual([{ source: 'openalex', query: 'test' }]);
+    expect(() => researchConfig.addDirection({ name: '测试方向', queries: [{ source: 'arxiv', query: 'abs:dup' }] })).toThrow(/已存在/);
+    expect(() => researchConfig.addDirection({ name: '', queries: [{ source: 'arxiv', query: 'abs:x' }] })).toThrow(/不能为空/);
+    expect(() => researchConfig.addDirection({ name: '缺查询' })).toThrow(/不能为空/);
 
-    const updated = researchConfig.updateDirection('测试方向', { query: 'abs:updated', enabled: false });
-    expect(updated?.query).toBe('abs:updated');
+    const updated = researchConfig.updateDirection('测试方向', {
+      queries: [{ source: 'iacr', query: 'secret sharing' }],
+      enabled: false,
+    });
+    expect(updated?.queries).toEqual([{ source: 'iacr', query: 'secret sharing' }]);
     expect(updated?.enabled).toBe(false);
     expect(researchConfig.updateDirection('不存在', { query: 'abs:x' })).toBeNull();
 
     expect(researchConfig.deleteDirection('测试方向')).toBe(true);
     expect(researchConfig.deleteDirection('测试方向')).toBe(false);
+  });
+
+  it('exposes only whitelisted sources', () => {
+    const sources = researchConfig.availableSources();
+    expect(sources.map((s) => s.source)).toEqual(['arxiv', 'openalex', 'iacr']);
+    expect(sources.find((s) => s.source === 'openalex')?.download).toBe(false);
   });
 });
 
@@ -215,7 +246,9 @@ describe('research check pipeline', () => {
   });
 
   it('marks papers already in the library as duplicate', async () => {
-    storeMock.listPapers.mockReturnValue([{ id: '2607.28936v1' }]);
+    storeMock.listPapers.mockReturnValue([
+      { id: '2607.28936v1', title: 'DiffAttack', source: 'arxiv-auto', sourceId: '2607.28936' },
+    ]);
     mockFetch.mockImplementation(async (url: string) => {
       if (url.includes('/api/query')) {
         return new Response(
@@ -350,9 +383,9 @@ describe('paper-search MCP path', () => {
     paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
     paperClientMock.searchEntries.mockResolvedValue([
       {
-        id: 'http://arxiv.org/abs/2607.28936v1',
+        source: 'arxiv',
+        sourceId: '2607.28936',
         arxivId: '2607.28936v1',
-        baseId: '2607.28936',
         title: 'DiffAttack',
         summary: 'Abstract of DiffAttack.',
         published: '2026-07-31T00:00:00Z',
@@ -369,15 +402,17 @@ describe('paper-search MCP path', () => {
       JSON.stringify({
         schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
         maxPerRun: 5,
-        directions: [{ name: '方向A', query: 'diffusion adversarial attack', enabled: true }],
+        directions: [
+          { name: '方向A', enabled: true, queries: [{ source: 'arxiv', query: 'diffusion adversarial attack' }] },
+        ],
       }),
     );
 
     const run = await research.checkNow();
     expect(run.directions[0].papers.map((p) => p.status)).toEqual(['added']);
-    expect(paperClientMock.searchEntries).toHaveBeenCalledWith('diffusion adversarial attack', 20);
+    expect(paperClientMock.searchEntries).toHaveBeenCalledWith('diffusion adversarial attack', 'arxiv', 20);
     expect(paperClientMock.downloadWithFallback).toHaveBeenCalledWith(
-      expect.objectContaining({ arxivId: '2607.28936v1', doi: '10.1234/diffattack' }),
+      expect.objectContaining({ source: 'arxiv', paperId: '2607.28936', doi: '10.1234/diffattack' }),
     );
     expect(storeMock.createPaper).toHaveBeenCalledWith(
       expect.objectContaining({ id: '2607.28936v1', area: '方向A', source: 'arxiv-auto' }),
@@ -400,7 +435,9 @@ describe('paper-search MCP path', () => {
       JSON.stringify({
         schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
         maxPerRun: 5,
-        directions: [{ name: '方向A', query: 'diffusion adversarial attack', enabled: true }],
+        directions: [
+          { name: '方向A', enabled: true, queries: [{ source: 'arxiv', query: 'diffusion adversarial attack' }] },
+        ],
       }),
     );
 
@@ -415,9 +452,9 @@ describe('paper-search MCP path', () => {
     paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
     paperClientMock.searchEntries.mockResolvedValue([
       {
-        id: 'http://arxiv.org/abs/2607.28936v1',
+        source: 'arxiv',
+        sourceId: '2607.28936',
         arxivId: '2607.28936v1',
-        baseId: '2607.28936',
         title: 'DiffAttack',
         summary: 'Abstract.',
         published: '2026-07-31T00:00:00Z',
@@ -436,7 +473,9 @@ describe('paper-search MCP path', () => {
       JSON.stringify({
         schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
         maxPerRun: 5,
-        directions: [{ name: '方向A', query: 'diffusion adversarial attack', enabled: true }],
+        directions: [
+          { name: '方向A', enabled: true, queries: [{ source: 'arxiv', query: 'diffusion adversarial attack' }] },
+        ],
       }),
     );
 
@@ -463,7 +502,7 @@ describe('paper-search MCP path', () => {
       JSON.stringify({
         schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
         maxPerRun: 5,
-        directions: [{ name: '方向A', query: 'abs:test', enabled: true }],
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'arxiv', query: 'abs:test' }] }],
       }),
     );
 
@@ -473,6 +512,199 @@ describe('paper-search MCP path', () => {
     expect(mockFetch).toHaveBeenCalled();
     expect(paperClientMock.downloadWithFallback).toHaveBeenCalled();
     expect(storeMock.createPaper).toHaveBeenCalledWith(expect.objectContaining({ id: '2607.28936v1' }));
+  });
+});
+
+describe('multi-source research pipeline', () => {
+  beforeEach(() => {
+    rmSync(join(tempDir, 'mineru-failed'), { recursive: true, force: true });
+    storeMock.createPaper.mockReset();
+    storeMock.createPaper.mockResolvedValue({ id: 'x', title: 'x' });
+    storeMock.listPapers.mockReset();
+    storeMock.listPapers.mockReturnValue([]);
+    storeMock.updatePaper.mockReset();
+    mockFetch.mockReset();
+    paperClientMock.paperSearchMcpEnabled.mockReset();
+    paperClientMock.paperSearchMcpEnabled.mockReturnValue(true);
+    paperClientMock.searchEntries.mockReset();
+    paperClientMock.downloadWithFallback.mockReset();
+    paperClientMock.fetchPdfUrl.mockReset();
+    paperClientMock.fetchPdfUrl.mockResolvedValue(PDF_BYTES);
+  });
+
+  it('downloads OpenAlex entries via pdf_url direct and marks source', async () => {
+    paperClientMock.searchEntries.mockResolvedValue([
+      {
+        source: 'openalex',
+        sourceId: 'W2626778328',
+        title: 'Attention Is All You Need',
+        summary: 'Abstract.',
+        published: '2017-06-12T00:00:00Z',
+        authors: ['Ashish Vaswani'],
+        categories: [],
+        doi: '10.65215/2q58a426',
+        pdfUrl: 'https://langtaosha.org.cn/preprint.pdf',
+      },
+    ]);
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'openalex', query: 'attention is all you need' }] }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers.map((p) => p.status)).toEqual(['added']);
+    expect(paperClientMock.searchEntries).toHaveBeenCalledWith('attention is all you need', 'openalex', 20);
+    expect(paperClientMock.fetchPdfUrl).toHaveBeenCalledWith('https://langtaosha.org.cn/preprint.pdf');
+    expect(paperClientMock.downloadWithFallback).not.toHaveBeenCalled();
+    expect(storeMock.createPaper).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'openalex-W2626778328',
+        area: '方向A',
+        source: 'openalex-auto',
+        sourceId: 'W2626778328',
+        doi: '10.65215/2q58a426',
+        year: '2017',
+      }),
+    );
+    expect(run.directions[0].papers[0].source).toBe('openalex');
+  });
+
+  it('sanitizes slashes in IACR paper ids', async () => {
+    paperClientMock.searchEntries.mockResolvedValue([
+      {
+        source: 'iacr',
+        sourceId: '2026/1331',
+        title: 'IACR Paper',
+        summary: 'Abstract.',
+        published: '2026-07-10T00:00:00Z',
+        authors: ['Jiayu Xu'],
+        categories: [],
+      },
+    ]);
+    const iacrPdf = join(tempDir, 'iacr.pdf');
+    writeFileSync(iacrPdf, PDF_BYTES);
+    paperClientMock.downloadWithFallback.mockResolvedValue(iacrPdf);
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'iacr', query: 'secret sharing' }] }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers[0].status).toBe('added');
+    expect(paperClientMock.downloadWithFallback).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'iacr', paperId: '2026/1331' }),
+    );
+    expect(storeMock.createPaper).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'iacr-2026-1331', source: 'iacr-auto' }),
+    );
+  });
+
+  it('dedupes the same DOI across sources', async () => {
+    storeMock.listPapers.mockReturnValue([
+      {
+        id: '2607.28936v1',
+        title: 'DiffAttack',
+        source: 'arxiv-auto',
+        sourceId: '2607.28936',
+        doi: '10.1234/diffattack',
+      } as unknown as { id: string },
+    ]);
+    paperClientMock.searchEntries.mockResolvedValue([
+      {
+        source: 'openalex',
+        sourceId: 'W99',
+        title: 'DiffAttack',
+        summary: 'Abstract.',
+        published: '2026-07-31T00:00:00Z',
+        authors: [],
+        categories: [],
+        doi: '10.1234/diffattack',
+        pdfUrl: 'https://example.com/x.pdf',
+      },
+    ]);
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/x.pdf') return pdfResponse();
+      return new Response('not found', { status: 404 });
+    });
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'openalex', query: 'diffattack' }] }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers.map((p) => p.status)).toEqual(['duplicate']);
+    expect(storeMock.createPaper).not.toHaveBeenCalled();
+  });
+
+  it('backfills DOI on existing papers from metadata sources', async () => {
+    storeMock.listPapers.mockReturnValue([
+      {
+        id: '2607.28936v1',
+        title: 'DiffAttack',
+        source: 'arxiv-auto',
+        sourceId: '2607.28936',
+        doi: undefined,
+      } as unknown as { id: string },
+    ]);
+    paperClientMock.searchEntries.mockResolvedValue([
+      {
+        source: 'openalex',
+        sourceId: 'W99',
+        title: 'DiffAttack',
+        summary: 'Abstract.',
+        published: '2026-07-31T00:00:00Z',
+        authors: [],
+        categories: [],
+        doi: '10.1234/diffattack',
+        pdfUrl: 'https://example.com/x.pdf',
+      },
+    ]);
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/x.pdf') return pdfResponse();
+      return new Response('not found', { status: 404 });
+    });
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'openalex', query: 'diffattack' }] }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.directions[0].papers[0].status).toBe('duplicate');
+    expect(storeMock.updatePaper).toHaveBeenCalledWith('2607.28936v1', { doi: '10.1234/diffattack' });
+    expect(storeMock.createPaper).not.toHaveBeenCalled();
+  });
+
+  it('records direction-level error when a non-arxiv source search fails', async () => {
+    paperClientMock.searchEntries.mockRejectedValue(new Error('openalex 500'));
+    writeFileSync(
+      join(tempDir, 'research.json'),
+      JSON.stringify({
+        schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
+        maxPerRun: 5,
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'openalex', query: 'diffattack' }] }],
+      }),
+    );
+
+    const run = await research.checkNow();
+    expect(run.status).toBe('success');
+    expect(run.directions[0].error).toContain('openalex 500');
+    expect(storeMock.createPaper).not.toHaveBeenCalled();
   });
 });
 

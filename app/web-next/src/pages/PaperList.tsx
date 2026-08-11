@@ -33,6 +33,24 @@ function formatDate(iso?: string): string {
   }
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  manual: '手动',
+  arxiv: 'arXiv',
+  semantic: 'Semantic Scholar',
+  openalex: 'OpenAlex',
+  iacr: 'IACR',
+  zenodo: 'Zenodo',
+};
+
+function parseSource(source?: string): string {
+  if (!source) return 'manual';
+  return source.endsWith('-auto') ? source.slice(0, -'-auto'.length) : source;
+}
+
+function sourceLabel(source?: string): string {
+  return SOURCE_LABELS[parseSource(source)] ?? parseSource(source);
+}
+
 type SortKey = 'addedDesc' | 'addedAsc' | 'yearDesc' | 'yearAsc' | 'titleAsc';
 
 function sortPapers(list: Paper[], sortBy: SortKey): Paper[] {
@@ -106,9 +124,19 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
                 <CalendarOutlined /> {formatDate(paper.addedAt)}
               </Typography.Text>
             )}
-            {paper.source === 'arxiv-auto' && (
+            {(paper.source ?? '').endsWith('-auto') && (
               <Tag icon={<ThunderboltOutlined />} color="gold" style={{ fontSize: 11, marginRight: 0 }}>
-                自动收录
+                {sourceLabel(paper.source)} · 自动
+              </Tag>
+            )}
+            {paper.source && !(paper.source ?? '').endsWith('-auto') && (
+              <Tag color="purple" style={{ fontSize: 11, marginRight: 0 }}>
+                {sourceLabel(paper.source)}
+              </Tag>
+            )}
+            {paper.doi && (
+              <Tag color="cyan" style={{ fontSize: 11, marginRight: 0 }}>
+                DOI
               </Tag>
             )}
             {!paper.hasMd && <Tag style={{ fontSize: 11, marginRight: 0 }}>无 MD</Tag>}
@@ -156,6 +184,8 @@ export default function PaperList() {
   const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
   const [autoOnly, setAutoOnly] = useState(false);
   const [acceptedOnly, setAcceptedOnly] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [hasDoiOnly, setHasDoiOnly] = useState(false);
   const [yearFilter, setYearFilter] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('addedDesc');
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -206,17 +236,28 @@ export default function PaperList() {
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-CN'));
   }, [papersQ.data]);
 
+  const sourceCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of papersQ.data ?? []) {
+      const s = parseSource(p.source);
+      map.set(s, (map.get(s) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [papersQ.data]);
+
   const filtered = useMemo(() => {
     return baseList.filter(
       (p) =>
         (activeDirection === GLOBAL_DIRECTION || (p.directions ?? []).includes(activeDirection)) &&
         (!yearFilter || p.year === yearFilter) &&
         (!selectedVenues.length || (p.venue && selectedVenues.includes(p.venue))) &&
-        (!autoOnly || p.source === 'arxiv-auto') &&
+        (!autoOnly || (p.source ?? '').endsWith('-auto')) &&
         (!acceptedOnly || (p.venue && p.venue !== '未收录')) &&
+        (!selectedSources.length || selectedSources.includes(parseSource(p.source))) &&
+        (!hasDoiOnly || !!p.doi) &&
         selectedTags.every((t) => p.tags.includes(t)),
     );
-  }, [baseList, selectedTags, selectedVenues, autoOnly, acceptedOnly, activeDirection, yearFilter]);
+  }, [baseList, selectedTags, selectedVenues, autoOnly, acceptedOnly, selectedSources, hasDoiOnly, activeDirection, yearFilter]);
 
   const sorted = useMemo(() => sortPapers(filtered, sortBy), [filtered, sortBy]);
 
@@ -225,6 +266,9 @@ export default function PaperList() {
 
   const toggleVenue = (v: string) =>
     setSelectedVenues((cur) => (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]));
+
+  const toggleSource = (s: string) =>
+    setSelectedSources((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
   const loading = papersQ.isLoading || (searching && searchQ.isLoading);
   const error = papersQ.error || (searching ? searchQ.error : null);
@@ -281,6 +325,28 @@ export default function PaperList() {
             >
               已中刊
             </Tag>
+            <Tag
+              color={hasDoiOnly ? 'blue' : 'default'}
+              style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}
+              onClick={() => setHasDoiOnly((v) => !v)}
+            >
+              有 DOI
+            </Tag>
+            {sourceCounts.map(([s, count]) => {
+              const active = selectedSources.includes(s);
+              return (
+                <Tag
+                  key={s}
+                  color={active ? 'purple' : 'default'}
+                  style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}
+                  onClick={() => toggleSource(s)}
+                  role="button"
+                  aria-label={`筛选来源 ${sourceLabel(s)}`}
+                >
+                  {sourceLabel(s)} <span style={{ opacity: 0.6 }}>{count}</span>
+                </Tag>
+              );
+            })}
             {venueCounts.map(([v, count]) => {
               const active = selectedVenues.includes(v);
               return (

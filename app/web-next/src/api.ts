@@ -270,7 +270,12 @@ export const api = {
       body: JSON.stringify(s),
     }),
   getResearchConfig: () => http<ResearchConfigDto>('/api/research/directions'),
-  createResearchDirection: (d: { name: string; query: string; enabled?: boolean; maxPerRun?: number }) =>
+  createResearchDirection: (d: {
+    name: string;
+    queries: { source: string; query: string }[];
+    enabled?: boolean;
+    maxPerRun?: number;
+  }) =>
     http<ResearchDirection>('/api/research/directions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -278,7 +283,12 @@ export const api = {
     }),
   updateResearchDirection: (
     name: string,
-    patch: { query?: string; enabled?: boolean; maxPerRun?: number },
+    patch: {
+      queries?: { source: string; query: string }[];
+      query?: string;
+      enabled?: boolean;
+      maxPerRun?: number;
+    },
   ) =>
     http<ResearchDirection>(`/api/research/directions/${encodeURIComponent(name)}`, {
       method: 'PUT',

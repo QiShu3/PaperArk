@@ -264,7 +264,12 @@ app.put('/api/settings', (req, res) => {
 
 app.get('/api/research/directions', (_req, res) => {
   const cfg = researchConfig.readResearchConfig();
-  res.json({ schedule: cfg.schedule, maxPerRun: cfg.maxPerRun, directions: cfg.directions });
+  res.json({
+    schedule: cfg.schedule,
+    maxPerRun: cfg.maxPerRun,
+    directions: cfg.directions,
+    availableSources: researchConfig.availableSources(),
+  });
 });
 
 app.post('/api/research/directions', (req, res) => {

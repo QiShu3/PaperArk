@@ -29,10 +29,18 @@ const config: ResearchConfigDto = {
   directions: [
     {
       name: '基于扩散模型的对抗攻击',
-      query: 'abs:"diffusion model" AND abs:adversarial AND abs:attack',
       enabled: true,
       maxPerRun: 3,
+      queries: [
+        { source: 'arxiv', query: 'abs:"diffusion model" AND abs:adversarial AND abs:attack' },
+        { source: 'openalex', query: 'diffusion model adversarial attack' },
+      ],
     },
+  ],
+  availableSources: [
+    { source: 'arxiv', label: 'arXiv', download: true },
+    { source: 'openalex', label: 'OpenAlex', download: false },
+    { source: 'iacr', label: 'IACR', download: true },
   ],
 };
 
@@ -46,8 +54,8 @@ const run: ResearchRun = {
       direction: '基于扩散模型的对抗攻击',
       query: 'abs:"diffusion model" AND abs:adversarial AND abs:attack',
       papers: [
-        { id: '2607.28936', arxivId: '2607.28936v1', title: 'DiffAttack', status: 'added' },
-        { id: '2607.11111', arxivId: '2607.11111v1', title: 'Old Paper', status: 'duplicate' },
+        { id: '2607.28936', source: 'arxiv', arxivId: '2607.28936v1', title: 'DiffAttack', status: 'added' },
+        { id: '2607.11111', source: 'arxiv', arxivId: '2607.11111v1', title: 'Old Paper', status: 'duplicate' },
       ],
     },
   ],
@@ -78,8 +86,8 @@ describe('ResearchPage', () => {
     mockApi.getResearchRuns.mockResolvedValue([run]);
     mockApi.createResearchDirection.mockResolvedValue({
       name: '新方向',
-      query: 'abs:new',
       enabled: true,
+      queries: [{ source: 'arxiv', query: 'abs:new' }],
     });
     mockApi.deleteResearchDirection.mockResolvedValue({ ok: true });
     mockApi.checkResearch.mockResolvedValue({ runId: 'run-new' });
@@ -112,7 +120,7 @@ describe('ResearchPage', () => {
     await screen.findByRole('dialog');
     const nameInput = await screen.findByRole('textbox', { name: /名称/ });
     fireEvent.change(nameInput, { target: { value: '新方向' } });
-    fireEvent.change(screen.getByRole('textbox', { name: /arXiv 查询词/ }), {
+    fireEvent.change(screen.getByPlaceholderText(/abs:"diffusion model"/), {
       target: { value: 'abs:new' },
     });
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
@@ -120,7 +128,7 @@ describe('ResearchPage', () => {
     await waitFor(() => {
       expect(mockApi.createResearchDirection).toHaveBeenCalledWith({
         name: '新方向',
-        query: 'abs:new',
+        queries: [{ source: 'arxiv', query: 'abs:new' }],
         enabled: true,
         maxPerRun: undefined,
       });

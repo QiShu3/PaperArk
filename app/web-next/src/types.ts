@@ -8,6 +8,8 @@ export interface Paper {
   year?: string;
   area?: string;
   source?: string;
+  sourceId?: string;
+  doi?: string;
   directions?: string[];
   hasMd: boolean;
   hasPdf: boolean;
@@ -123,17 +125,23 @@ export interface ChunkRow {
   char_count: number;
 }
 
+export interface ResearchQuery {
+  source: string;
+  query: string;
+}
+
 export interface ResearchDirection {
   name: string;
-  query: string;
   enabled: boolean;
   maxPerRun?: number;
+  queries: ResearchQuery[];
 }
 
 export interface ResearchConfigDto {
   schedule: { cron: string; timezone: string };
   maxPerRun: number;
   directions: ResearchDirection[];
+  availableSources?: { source: string; label: string; download: boolean }[];
 }
 
 export type ResearchPaperStatus =
@@ -145,6 +153,7 @@ export type ResearchPaperStatus =
 
 export interface ResearchRunPaper {
   id: string;
+  source: string;
   arxivId: string;
   title: string;
   status: ResearchPaperStatus;

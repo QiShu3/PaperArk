@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import type { PaperEntry } from './sources.js';
 
 export interface ArxivEntry {
   id: string;
@@ -107,4 +108,20 @@ export async function searchArxiv(query: string, maxResults: number): Promise<Ar
     throw new Error(`arXiv API 请求失败 (HTTP ${res.status})`);
   }
   throw new Error('arXiv API 请求失败');
+}
+
+/** 把 arXiv 直连结果适配为统一 PaperEntry（用于 research 流水线）。 */
+export function arxivEntryToPaper(entry: ArxivEntry): PaperEntry {
+  return {
+    source: 'arxiv',
+    sourceId: entry.arxivId,
+    arxivId: entry.arxivId,
+    title: entry.title,
+    summary: entry.summary,
+    published: entry.published,
+    authors: entry.authors,
+    categories: entry.categories,
+    doi: entry.doi,
+    pdfUrl: entry.arxivId ? `https://arxiv.org/pdf/${entry.arxivId}` : undefined,
+  };
 }

@@ -308,39 +308,45 @@ describe('GET /api/papers/:id/chunks?q=', () => {
 });
 
 describe('research endpoints', () => {
-  it('returns default directions when no config exists', async () => {
+  it('returns default directions and available sources when no config exists', async () => {
     const res = await request(app).get('/api/research/directions');
     expect(res.status).toBe(200);
     expect(res.body.schedule.cron).toBe('0 9 * * *');
     expect(res.body.directions.length).toBeGreaterThan(0);
+    expect(res.body.availableSources.map((s: { source: string }) => s.source)).toEqual(['arxiv', 'openalex', 'iacr']);
   });
 
   it('creates, validates, updates and deletes directions', async () => {
     const created = await request(app)
       .post('/api/research/directions')
-      .send({ name: '测试方向', query: 'abs:test' });
+      .send({ name: '测试方向', queries: [{ source: 'openalex', query: 'diffusion attack' }] });
     expect(created.status).toBe(201);
     expect(created.body.enabled).toBe(true);
+    expect(created.body.queries).toEqual([{ source: 'openalex', query: 'diffusion attack' }]);
 
     const dup = await request(app)
       .post('/api/research/directions')
-      .send({ name: '测试方向', query: 'abs:other' });
+      .send({ name: '测试方向', queries: [{ source: 'arxiv', query: 'abs:other' }] });
     expect(dup.status).toBe(400);
 
     const empty = await request(app)
       .post('/api/research/directions')
-      .send({ name: '空查询', query: '   ' });
+      .send({ name: '空查询', queries: [{ source: 'arxiv', query: '   ' }] });
     expect(empty.status).toBe(400);
 
     const updated = await request(app)
       .put(`/api/research/directions/${encodeURIComponent('测试方向')}`)
-      .send({ query: 'abs:updated', enabled: false, maxPerRun: 3 });
+      .send({ queries: [{ source: 'iacr', query: 'secret sharing' }], enabled: false, maxPerRun: 3 });
     expect(updated.status).toBe(200);
-    expect(updated.body).toMatchObject({ query: 'abs:updated', enabled: false, maxPerRun: 3 });
+    expect(updated.body).toMatchObject({
+      queries: [{ source: 'iacr', query: 'secret sharing' }],
+      enabled: false,
+      maxPerRun: 3,
+    });
 
     const missing = await request(app)
       .put(`/api/research/directions/${encodeURIComponent('不存在')}`)
-      .send({ query: 'abs:x' });
+      .send({ queries: [{ source: 'arxiv', query: 'abs:x' }] });
     expect(missing.status).toBe(404);
 
     const list = await request(app).get('/api/research/directions');
@@ -348,6 +354,15 @@ describe('research endpoints', () => {
 
     const del = await request(app).delete(`/api/research/directions/${encodeURIComponent('测试方向')}`);
     expect(del.status).toBe(200);
+  });
+
+  it('accepts legacy single-query payloads and migrates them to arxiv queries', async () => {
+    const res = await request(app)
+      .post('/api/research/directions')
+      .send({ name: '旧格式', query: 'abs:legacy' });
+    expect(res.status).toBe(201);
+    expect(res.body.queries).toEqual([{ source: 'arxiv', query: 'abs:legacy' }]);
+    await request(app).delete(`/api/research/directions/${encodeURIComponent('旧格式')}`);
   });
 
   it('runs a check and exposes status and run history', async () => {
@@ -375,14 +390,20 @@ describe('research endpoints', () => {
     expect(runs.body[0].status).toBe('success');
   });
 
-  it('includes source in the papers list', async () => {
+  it('includes source/sourceId/doi in the papers list', async () => {
     writeFileSync(
       join(tempDir, 'papers.json'),
-      JSON.stringify({ 'test-paper': { tags: [], source: 'arxiv-auto' } }),
+      JSON.stringify({
+        'test-paper': { tags: [], source: 'arxiv-auto', sourceId: '2607.28936', doi: '10.1234/x' },
+      }),
     );
     const res = await request(app).get('/api/papers');
-    const paper = (res.body as { id: string; source?: string }[]).find((p) => p.id === 'test-paper');
+    const paper = (res.body as { id: string; source?: string; sourceId?: string; doi?: string }[]).find(
+      (p) => p.id === 'test-paper',
+    );
     expect(paper?.source).toBe('arxiv-auto');
+    expect(paper?.sourceId).toBe('2607.28936');
+    expect(paper?.doi).toBe('10.1234/x');
   });
 
   it('rejects classification when API key is missing', async () => {
@@ -403,7 +424,7 @@ describe('research endpoints', () => {
       JSON.stringify({
         schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
         maxPerRun: 5,
-        directions: [{ name: '方向A', query: 'abs:a', enabled: true }],
+        directions: [{ name: '方向A', enabled: true, queries: [{ source: 'arxiv', query: 'abs:a' }] }],
       }),
     );
     mockFetch.mockResolvedValue({

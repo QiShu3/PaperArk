@@ -6,6 +6,7 @@ import {
   ArrowLeftOutlined,
   EditOutlined,
   LoadingOutlined,
+  MinusOutlined,
   PlusOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
@@ -14,10 +15,23 @@ import { api } from '../api';
 import type {
   ResearchDirection,
   ResearchPaperStatus,
+  ResearchQuery,
   ResearchRunDirection,
   ClassifyStatus,
 } from '../types';
 import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
+
+const SOURCE_LABELS: Record<string, string> = {
+  arxiv: 'arXiv',
+  semantic: 'Semantic Scholar',
+  openalex: 'OpenAlex',
+  iacr: 'IACR',
+  zenodo: 'Zenodo',
+};
+
+function sourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source;
+}
 
 const STATUS_LABEL: Record<ResearchPaperStatus, string> = {
   added: '已入库',
@@ -62,7 +76,7 @@ export default function ResearchPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ResearchDirection | null>(null);
   const [name, setName] = useState('');
-  const [query, setQuery] = useState('');
+  const [queries, setQueries] = useState<ResearchQuery[]>([]);
   const [enabled, setEnabled] = useState(true);
   const [maxPerRun, setMaxPerRun] = useState('');
 
@@ -79,10 +93,12 @@ export default function ResearchPage() {
     refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
   });
 
+  const availableSources = cfgQ.data?.availableSources ?? [];
+
   const openCreate = () => {
     setEditing(null);
     setName('');
-    setQuery('');
+    setQueries([{ source: 'arxiv', query: '' }]);
     setEnabled(true);
     setMaxPerRun('');
     setDialogOpen(true);
@@ -91,17 +107,31 @@ export default function ResearchPage() {
   const openEdit = (d: ResearchDirection) => {
     setEditing(d);
     setName(d.name);
-    setQuery(d.query);
+    setQueries(d.queries.map((q) => ({ source: q.source, query: q.query })));
     setEnabled(d.enabled);
     setMaxPerRun(d.maxPerRun?.toString() ?? '');
     setDialogOpen(true);
   };
 
+  const updateQuery = (index: number, patch: Partial<ResearchQuery>) => {
+    setQueries((cur) => cur.map((q, i) => (i === index ? { ...q, ...patch } : q)));
+  };
+
+  const removeQuery = (index: number) => {
+    setQueries((cur) => cur.filter((_, i) => i !== index));
+  };
+
+  const addQuery = () => {
+    const used = new Set(queries.map((q) => q.source));
+    const firstFree = availableSources.find((s) => !used.has(s.source))?.source ?? 'arxiv';
+    setQueries((cur) => [...cur, { source: firstFree, query: '' }]);
+  };
+
   const saveMut = useMutation({
-    mutationFn: (d: { name: string; query: string; enabled: boolean; maxPerRun?: number }) =>
+    mutationFn: (d: { name: string; queries: ResearchQuery[]; enabled: boolean; maxPerRun?: number }) =>
       editing
         ? api.updateResearchDirection(editing.name, {
-            query: d.query,
+            queries: d.queries,
             enabled: d.enabled,
             maxPerRun: d.maxPerRun,
           })
@@ -151,14 +181,16 @@ export default function ResearchPage() {
 
   const submit = () => {
     const trimmedName = name.trim();
-    const trimmedQuery = query.trim();
-    if (!trimmedName || !trimmedQuery) {
+    const validQueries = queries
+      .map((q) => ({ source: q.source, query: q.query.trim() }))
+      .filter((q) => q.query.length > 0);
+    if (!trimmedName || validQueries.length === 0) {
       message.error('名称和查询词不能为空');
       return;
     }
     saveMut.mutate({
       name: trimmedName,
-      query: trimmedQuery,
+      queries: validQueries,
       enabled,
       maxPerRun: maxPerRun.trim() ? Number(maxPerRun) : undefined,
     });
@@ -259,9 +291,16 @@ export default function ResearchPage() {
                       </Typography.Text>
                     )}
                   </Flex>
-                  <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', marginTop: 4 }}>
-                    {d.query}
-                  </Typography.Text>
+                  {d.queries.map((q) => (
+                    <div key={q.source} style={{ marginTop: 4 }}>
+                      <Tag color="blue" style={{ fontSize: 11, marginRight: 4 }}>
+                        {sourceLabel(q.source)}
+                      </Tag>
+                      <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                        {q.query}
+                      </Typography.Text>
+                    </div>
+                  ))}
                 </div>
                 <Space>
                   <Button size="small" onClick={() => toggleMut.mutate(d)} loading={toggleMut.isPending}>
@@ -356,10 +395,11 @@ export default function ResearchPage() {
                       </summary>
                       <ul style={{ marginTop: 8, paddingLeft: 20 }}>
                         {dir.papers.map((p) => (
-                          <li key={p.arxivId} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                          <li key={p.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                             <Tag color={STATUS_COLOR[p.status]} style={{ fontSize: 11, marginRight: 0 }}>
                               {STATUS_LABEL[p.status]}
                             </Tag>
+                            <Tag style={{ fontSize: 11, marginRight: 0 }}>{sourceLabel(p.source)}</Tag>
                             <Typography.Text style={{ fontSize: 12 }}>{p.title}</Typography.Text>
                             <Typography.Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
                               {p.arxivId}
@@ -408,14 +448,39 @@ export default function ResearchPage() {
               onChange={(e) => setName(e.target.value)}
             />
           </Form.Item>
-          <Form.Item label="arXiv 查询词" htmlFor="direction-query">
-            <Input.TextArea
-              id="direction-query"
-              value={query}
-              placeholder='abs:"diffusion model" AND abs:adversarial AND abs:attack'
-              onChange={(e) => setQuery(e.target.value)}
-              autoSize={{ minRows: 2 }}
-            />
+          <Form.Item label="查询条目（每个源独立查询词）">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {queries.map((q, index) => (
+                <Flex key={index} gap={8} align="flex-start">
+                  <Select
+                    value={q.source}
+                    onChange={(v) => updateQuery(index, { source: v })}
+                    style={{ width: 180, flexShrink: 0 }}
+                    options={availableSources.map((s) => ({ value: s.source, label: s.label }))}
+                    aria-label={`第 ${index + 1} 个查询的源`}
+                  />
+                  <Input.TextArea
+                    value={q.query}
+                    onChange={(e) => updateQuery(index, { query: e.target.value })}
+                    autoSize={{ minRows: 1 }}
+                    placeholder={
+                      q.source === 'arxiv'
+                        ? 'abs:"diffusion model" AND abs:adversarial AND abs:attack'
+                        : 'diffusion model adversarial attack'
+                    }
+                  />
+                  <Button
+                    icon={<MinusOutlined />}
+                    disabled={queries.length <= 1}
+                    onClick={() => removeQuery(index)}
+                    aria-label="删除该查询条目"
+                  />
+                </Flex>
+              ))}
+              <Button type="dashed" icon={<PlusOutlined />} onClick={addQuery} block>
+                添加来源
+              </Button>
+            </div>
           </Form.Item>
           <Form.Item label="单次最多收录（留空用全局默认）" htmlFor="direction-max">
             <Input

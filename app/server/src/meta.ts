@@ -9,6 +9,8 @@ export interface PaperMeta {
   year?: string;
   area?: string;
   source?: string;
+  sourceId?: string;
+  doi?: string;
   directions?: string[];
 }
 

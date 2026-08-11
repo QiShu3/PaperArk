@@ -23,7 +23,7 @@ vi.mock('@/api', () => ({ api: mockApi }));
 const config: ResearchConfigDto = {
   schedule: { cron: '0 9 * * *', timezone: 'Asia/Shanghai' },
   maxPerRun: 5,
-  directions: [{ name: '基于扩散模型的对抗攻击', query: 'abs:attack', enabled: true }],
+  directions: [{ name: '基于扩散模型的对抗攻击', enabled: true, queries: [{ source: 'arxiv', query: 'abs:attack' }] }],
 };
 
 const tags: TagCount[] = [{ tag: 'diffusion', count: 2 }];
@@ -48,6 +48,8 @@ const papers: Paper[] = [
     year: '2026',
     area: '扩散模型防御',
     source: 'arxiv-auto',
+    sourceId: '2607.00002',
+    doi: '10.1234/alpha',
     hasMd: false,
     hasPdf: true,
   },
@@ -141,7 +143,49 @@ describe('PaperList', () => {
     expect(screen.queryByText(/更多/)).not.toBeInTheDocument();
   });
 
-  it('filters papers by accepted (中刊) badge', async () => {
+  it('filters papers by source badge', async () => {
+    const multiSourcePapers: Paper[] = [
+      { ...papers[0] },
+      { ...papers[1] },
+      {
+        id: 'openalex-W999',
+        title: 'OpenAlex Paper',
+        tags: [],
+        addedAt: '2026-08-06T10:00:00.000Z',
+        source: 'openalex-auto',
+        sourceId: 'W999',
+        hasMd: true,
+        hasPdf: false,
+      },
+    ];
+    mockApi.listPapers.mockResolvedValue(multiSourcePapers);
+    renderPage();
+
+    await screen.findByText('Zeta Paper');
+    fireEvent.click(screen.getByLabelText('筛选来源 OpenAlex'));
+
+    await waitFor(() => {
+      expect(screen.getByText('OpenAlex Paper')).toBeInTheDocument();
+      expect(screen.queryByText('Zeta Paper')).not.toBeInTheDocument();
+      expect(screen.queryByText('Alpha Paper')).not.toBeInTheDocument();
+      expect(screen.getByText('共 1 篇论文')).toBeInTheDocument();
+    });
+  });
+
+  it('filters papers that have a DOI', async () => {
+    renderPage();
+
+    await screen.findByText('Zeta Paper');
+    fireEvent.click(screen.getByText('有 DOI'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha Paper')).toBeInTheDocument();
+      expect(screen.queryByText('Zeta Paper')).not.toBeInTheDocument();
+      expect(screen.getByText('共 1 篇论文')).toBeInTheDocument();
+    });
+  });
+
+  it('shows accepted (中刊) badge', async () => {
     const acceptedPapers: Paper[] = [
       {
         id: '2607.20001',

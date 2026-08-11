@@ -4,9 +4,10 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PAPERS_ROOT, RAW_PDF_DIR, MINERU_FAILED_DIR } from './paths.js';
 import { readResearchConfig } from './researchConfig.js';
-import { searchArxiv, normalizeArxivId, type ArxivEntry } from './arxiv.js';
+import { searchArxiv, normalizeArxivId, arxivEntryToPaper } from './arxiv.js';
+import { sanitizeStorageId, type PaperEntry } from './sources.js';
 import * as paperClient from './paperClient.js';
-import { createPaper, listPapers, updatePaper } from './store.js';
+import { createPaper, listPapers, updatePaper, type Paper } from './store.js';
 import { classifyTitleAbstract } from './classify.js';
 import { readSettings } from './settingsStore.js';
 import * as vectorStore from './vectorStore.js';
@@ -16,7 +17,6 @@ const RUNS_FILE = path.join(PAPERS_ROOT, 'scan-runs.json');
 const RUNS_LIMIT = 50;
 const ARXIV_DELAY_MS = 3000;
 const PDF_TIMEOUT_MS = 120_000;
-const SEARCH_TIMEOUT_MS = 60_000;
 
 // arXiv 原生字段前缀。paper-search-mcp 会把查询硬包成 `all:...`，
 // 字段化查询（如 abs:"..." AND ...）会被拼坏导致 arXiv 拒绝，因此这类查询绕过 MCP。
@@ -31,6 +31,7 @@ export type PaperStatus =
 
 export interface RunPaperResult {
   id: string;
+  source: string;
   arxivId: string;
   title: string;
   status: PaperStatus;
@@ -78,11 +79,12 @@ function writeRuns(runs: RunRecord[]): void {
   fs.writeFileSync(RUNS_FILE, JSON.stringify(runs.slice(0, RUNS_LIMIT), null, 2) + '\n', 'utf-8');
 }
 
+/** mineru-failed 目录里的文件按存储 id（sanitize 后）命名，直接比对。 */
 function failedIds(): Set<string> {
   const ids = new Set<string>();
   try {
     for (const f of fs.readdirSync(MINERU_FAILED_DIR)) {
-      if (f.endsWith('.pdf')) ids.add(normalizeArxivId(path.basename(f, '.pdf')));
+      if (f.endsWith('.pdf')) ids.add(path.basename(f, '.pdf'));
     }
   } catch {
     // directory missing: nothing failed yet
@@ -104,54 +106,152 @@ async function downloadPdf(arxivId: string): Promise<string> {
   return tmp;
 }
 
-/**
- * 搜索论文：优先走 paper-search MCP（多源回退、自带重试/UA），
- * MCP 不可用时降级到 arXiv API 直连。
- */
-async function searchForDirection(query: string, limit: number): Promise<ArxivEntry[]> {
-  const maxResults = Math.max(limit * 3, 20);
-  const fielded = FIELDED_QUERY.test(query.trim());
-  if (!fielded && paperClient.paperSearchMcpEnabled()) {
-    try {
-      const entries = await paperClient.searchEntries(query, maxResults);
-      logger.info({ query, count: entries.length }, 'paper-search MCP search ok');
-      return entries;
-    } catch (e) {
-      logger.warn({ err: e, query }, 'paper-search MCP search failed, falling back to arXiv direct');
-    }
-  } else if (fielded) {
-    logger.info({ query }, 'fielded arXiv query, skipping paper-search MCP');
-  }
-  return searchArxiv(query, maxResults);
+function writeTmpPdf(entry: PaperEntry, buf: Buffer): string {
+  const tmp = path.join(os.tmpdir(), `${entry.source}-${entry.sourceId.replace(/\W+/g, '-')}-${Date.now()}.pdf`);
+  fs.writeFileSync(tmp, buf);
+  return tmp;
 }
 
 /**
- * 下载 PDF：优先走 paper-search MCP 的 download_with_fallback
- * （源站 → OA 仓库 → Unpaywall），MCP 不可用时降级到 arxiv.org 直连。
+ * 下载 PDF：优先条目自带 pdf_url 直连（OpenAlex 等元数据源主路径），
+ * 失败后走 paper-search MCP download_with_fallback（源站 → OA 仓库 → Unpaywall），
+ * arXiv 源最后降级到 arxiv.org 直连。
  */
-async function downloadPdfForEntry(entry: ArxivEntry): Promise<string> {
+async function downloadPdfForEntry(entry: PaperEntry): Promise<string> {
+  if (entry.pdfUrl && entry.source !== 'arxiv') {
+    try {
+      const buf = await paperClient.fetchPdfUrl(entry.pdfUrl);
+      return writeTmpPdf(entry, buf);
+    } catch (e) {
+      logger.warn({ err: e, source: entry.source, sourceId: entry.sourceId }, 'pdf_url direct download failed');
+    }
+  }
   if (paperClient.paperSearchMcpEnabled()) {
     try {
-      const pdfPath = await paperClient.downloadWithFallback({
-        arxivId: entry.arxivId,
+      const p = await paperClient.downloadWithFallback({
+        source: entry.source,
+        paperId: entry.sourceId,
         doi: entry.doi,
         title: entry.title,
         savePath: os.tmpdir(),
       });
-      const buf = fs.readFileSync(pdfPath);
-      if (buf.subarray(0, 4).toString('latin1') !== '%PDF') {
-        throw new Error('MCP 下载内容不是 PDF');
-      }
-      return pdfPath;
+      if (p) return p;
+      logger.warn({ source: entry.source, sourceId: entry.sourceId }, 'paper-search MCP download returned empty');
     } catch (e) {
-      logger.warn({ err: e, arxivId: entry.arxivId }, 'paper-search MCP download failed, falling back to arXiv direct');
+      logger.warn({ err: e, source: entry.source, sourceId: entry.sourceId }, 'paper-search MCP download failed');
     }
   }
-  return downloadPdf(entry.arxivId);
+  if (entry.source === 'arxiv' && entry.arxivId) {
+    return downloadPdf(entry.arxivId);
+  }
+  throw new Error(`无法下载 PDF (${entry.source}/${entry.sourceId})`);
+}
+
+/**
+ * 单个源查询：字段化 arXiv 查询直连（MCP 会拼坏），其余走 MCP，arXiv 可降级直连。
+ */
+async function searchForQuery(
+  source: string,
+  query: string,
+  limit: number,
+): Promise<PaperEntry[]> {
+  const maxResults = Math.max(limit * 3, 20);
+  const fielded = source === 'arxiv' && FIELDED_QUERY.test(query.trim());
+  if (fielded) {
+    logger.info({ source, query }, 'fielded arXiv query, skipping paper-search MCP');
+    return (await searchArxiv(query, maxResults)).map(arxivEntryToPaper);
+  }
+  if (paperClient.paperSearchMcpEnabled()) {
+    try {
+      const entries = await paperClient.searchEntries(query, source, maxResults);
+      logger.info({ source, query, count: entries.length }, 'paper-search MCP search ok');
+      return entries;
+    } catch (e) {
+      logger.warn({ err: e, source, query }, 'paper-search MCP search failed');
+      if (source !== 'arxiv') throw e;
+    }
+  }
+  if (source === 'arxiv') {
+    return (await searchArxiv(query, maxResults)).map(arxivEntryToPaper);
+  }
+  throw new Error(`无法搜索源 ${source}（MCP 不可用且无直连降级）`);
 }
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+function normalizeTitle(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '')
+    .trim();
+}
+
+interface LibraryIndex {
+  byDoi: Map<string, Paper>;
+  bySourceKey: Map<string, Paper>;
+  byTitle: Map<string, Paper>;
+}
+
+function buildLibraryIndex(papers: Paper[]): LibraryIndex {
+  const idx: LibraryIndex = { byDoi: new Map(), bySourceKey: new Map(), byTitle: new Map() };
+  for (const p of papers) {
+    if (p.doi) idx.byDoi.set(p.doi.trim().toLowerCase(), p);
+    const src = p.source?.endsWith('-auto') ? p.source.slice(0, -'-auto'.length) : p.source;
+    let srcId = p.sourceId;
+    if (src === 'arxiv' && srcId) srcId = normalizeArxivId(srcId);
+    srcId = srcId ?? (src === 'arxiv' ? normalizeArxivId(p.id) : undefined);
+    if (src && srcId) idx.bySourceKey.set(`${src}:${srcId.toLowerCase()}`, p);
+    const t = p.title ? normalizeTitle(p.title) : '';
+    if (t && !idx.byTitle.has(t)) idx.byTitle.set(t, p);
+  }
+  return idx;
+}
+
+type DedupeKey = { kind: 'doi' | 'source' | 'title'; value: string };
+
+/** 生成该条目的全部候选去重 key：DOI 优先，其次源内 ID，最后标题归一化兜底。 */
+function dedupeKeysOf(entry: PaperEntry): DedupeKey[] {
+  const keys: DedupeKey[] = [];
+  if (entry.doi) keys.push({ kind: 'doi', value: entry.doi.trim().toLowerCase() });
+  if (entry.sourceId) {
+    const sid = entry.source === 'arxiv' ? normalizeArxivId(entry.sourceId) : entry.sourceId;
+    if (sid) keys.push({ kind: 'source', value: `${entry.source}:${sid.toLowerCase()}` });
+  }
+  const t = normalizeTitle(entry.title);
+  if (t) keys.push({ kind: 'title', value: t });
+  return keys;
+}
+
+function lookupLibrary(idx: LibraryIndex, key: DedupeKey): Paper | null {
+  if (key.kind === 'doi') return idx.byDoi.get(key.value) ?? null;
+  if (key.kind === 'source') return idx.bySourceKey.get(key.value) ?? null;
+  return idx.byTitle.get(key.value) ?? null;
+}
+
+function lookupAny(idx: LibraryIndex, keys: DedupeKey[]): Paper | null {
+  for (const k of keys) {
+    const hit = lookupLibrary(idx, k);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** 生成存储 id：arxiv 保留版本化 ID（兼容已有数据），其余源 sanitize。 */
+function storageIdOf(entry: PaperEntry): string {
+  if (entry.source === 'arxiv' && entry.arxivId) return entry.arxivId;
+  return sanitizeStorageId(entry.source, entry.sourceId);
+}
+
+/** 用搜索到的 DOI 回填库内已有论文（元数据源发现用途）。 */
+function backfillDoi(paper: Paper, doi?: string): void {
+  if (!doi || paper.doi) return;
+  try {
+    updatePaper(paper.id, { doi: doi.trim() });
+  } catch (e) {
+    logger.warn({ err: e, id: paper.id }, 'failed to backfill doi');
+  }
 }
 
 async function runCheck(runId: string): Promise<RunRecord> {
@@ -165,108 +265,135 @@ async function runCheck(runId: string): Promise<RunRecord> {
   currentRun = run;
   try {
     const cfg = readResearchConfig();
-    const existing = new Set(listPapers().map((p) => normalizeArxivId(p.id)));
+    const library = buildLibraryIndex(listPapers());
     const failed = failedIds();
 
     for (const dir of cfg.directions.filter((d) => d.enabled)) {
-      const result: RunDirectionResult = { direction: dir.name, query: dir.query, papers: [] };
+      const result: RunDirectionResult = {
+        direction: dir.name,
+        query: dir.queries.map((q) => q.query).join(' | '),
+        papers: [],
+      };
       run.directions.push(result);
+      const limit = Math.max(1, dir.maxPerRun ?? cfg.maxPerRun);
+      const seen = new Set<string>();
       try {
-        await delay(arxivDelayMs());
-        const limit = Math.max(1, dir.maxPerRun ?? cfg.maxPerRun);
-        const entries = await searchForDirection(dir.query, limit);
-        const seen = new Set<string>();
-        let processedNew = 0;
-        for (const entry of entries) {
-          if (!entry.baseId || seen.has(entry.baseId)) continue;
-          seen.add(entry.baseId);
-          if (existing.has(entry.baseId)) {
-            result.papers.push({
-              id: entry.baseId,
-              arxivId: entry.arxivId,
-              title: entry.title,
-              status: 'duplicate',
-            });
-            continue;
-          }
-          if (failed.has(entry.baseId)) {
-            result.papers.push({
-              id: entry.baseId,
-              arxivId: entry.arxivId,
-              title: entry.title,
-              status: 'previously_failed',
-            });
-            continue;
-          }
-          if (processedNew >= limit) break;
-          processedNew++;
+        for (const q of dir.queries) {
+          await delay(arxivDelayMs());
+          let entries: PaperEntry[] = [];
           try {
-            const pdfPath = await downloadPdfForEntry(entry);
-            try {
-              await createPaper({
-                pdfPath,
-                id: entry.arxivId,
-                tags: [],
-                area: dir.name,
-                year: entry.published.slice(0, 4) || undefined,
-                source: 'arxiv-auto',
+            entries = await searchForQuery(q.source, q.query, limit);
+          } catch (e) {
+            const msg = errorMessage(e);
+            result.error = [result.error, msg].filter(Boolean).join('; ');
+            logger.warn({ err: e, source: q.source, query: q.query }, 'search failed for direction query');
+            continue;
+          }
+          let processedNew = 0;
+          for (const entry of entries) {
+            const storageId = storageIdOf(entry);
+            const keys = dedupeKeysOf(entry);
+            const newKeys = keys.filter((k) => !seen.has(k.value));
+            if (newKeys.length === 0) continue;
+            for (const k of newKeys) seen.add(k.value);
+
+            const existing = lookupAny(library, keys);
+            if (existing) {
+              backfillDoi(existing, entry.doi);
+              result.papers.push({
+                id: storageId,
+                source: entry.source,
+                arxivId: entry.source === 'arxiv' ? (entry.arxivId ?? entry.sourceId) : entry.sourceId,
+                title: entry.title,
+                status: 'duplicate',
               });
-              let matched: string[] = [dir.name];
+              continue;
+            }
+            if (failed.has(storageId)) {
+              result.papers.push({
+                id: storageId,
+                source: entry.source,
+                arxivId: entry.source === 'arxiv' ? (entry.arxivId ?? entry.sourceId) : entry.sourceId,
+                title: entry.title,
+                status: 'previously_failed',
+              });
+              continue;
+            }
+            if (processedNew >= limit) break;
+            processedNew++;
+            try {
+              const pdfPath = await downloadPdfForEntry(entry);
               try {
-                const settings = readSettings();
-                const directionNames = cfg.directions.map((d) => d.name);
-                if (settings.apiKey && directionNames.length > 0) {
-                  matched = await classifyTitleAbstract(
-                    entry.title,
-                    entry.summary,
-                    directionNames,
-                    settings.apiKey,
+                await createPaper({
+                  pdfPath,
+                  id: storageId,
+                  tags: [],
+                  area: dir.name,
+                  year: entry.published.slice(0, 4) || undefined,
+                  source: `${entry.source}-auto`,
+                  sourceId: entry.sourceId,
+                  doi: entry.doi,
+                });
+                let matched: string[] = [dir.name];
+                try {
+                  const settings = readSettings();
+                  const directionNames = cfg.directions.map((d) => d.name);
+                  if (settings.apiKey && directionNames.length > 0) {
+                    matched = await classifyTitleAbstract(
+                      entry.title,
+                      entry.summary,
+                      directionNames,
+                      settings.apiKey,
+                    );
+                  }
+                } catch (e) {
+                  logger.warn({ err: e, sourceId: entry.sourceId }, 'auto-classify failed, keep source direction');
+                }
+                if (!matched.includes(dir.name)) matched = [dir.name, ...matched];
+                try {
+                  updatePaper(storageId, { directions: matched });
+                } catch (e) {
+                  logger.warn({ err: e, sourceId: entry.sourceId }, 'failed to persist directions');
+                }
+                if (vectorStore.vectorEnabled()) {
+                  void vectorStore.embedPaper(storageId).catch((e) =>
+                    logger.warn({ err: e, sourceId: entry.sourceId }, 'auto embedding failed'),
                   );
                 }
+                result.papers.push({
+                  id: storageId,
+                  source: entry.source,
+                  arxivId: entry.source === 'arxiv' ? (entry.arxivId ?? entry.sourceId) : entry.sourceId,
+                  title: entry.title,
+                  status: 'added',
+                });
               } catch (e) {
-                logger.warn({ err: e, arxivId: entry.arxivId }, 'auto-classify failed, keep source direction');
+                fs.rmSync(path.join(RAW_PDF_DIR, `${storageId}.pdf`), { force: true });
+                if (fs.existsSync(pdfPath)) {
+                  fs.mkdirSync(MINERU_FAILED_DIR, { recursive: true });
+                  fs.copyFileSync(pdfPath, path.join(MINERU_FAILED_DIR, `${storageId}.pdf`));
+                }
+                result.papers.push({
+                  id: storageId,
+                  source: entry.source,
+                  arxivId: entry.source === 'arxiv' ? (entry.arxivId ?? entry.sourceId) : entry.sourceId,
+                  title: entry.title,
+                  status: 'parse_failed',
+                  error: errorMessage(e),
+                });
+              } finally {
+                fs.rmSync(pdfPath, { force: true });
               }
-              if (!matched.includes(dir.name)) matched = [dir.name, ...matched];
-              try {
-                updatePaper(entry.arxivId, { directions: matched });
-              } catch (e) {
-                logger.warn({ err: e, arxivId: entry.arxivId }, 'failed to persist directions');
-              }
-              if (vectorStore.vectorEnabled()) {
-                void vectorStore.embedPaper(entry.arxivId).catch((e) =>
-                  logger.warn({ err: e, arxivId: entry.arxivId }, 'auto embedding failed'),
-                );
-              }
-              result.papers.push({
-                id: entry.baseId,
-                arxivId: entry.arxivId,
-                title: entry.title,
-                status: 'added',
-              });
             } catch (e) {
-              fs.rmSync(path.join(RAW_PDF_DIR, `${entry.arxivId}.pdf`), { force: true });
-              if (fs.existsSync(pdfPath)) {
-                fs.mkdirSync(MINERU_FAILED_DIR, { recursive: true });
-                fs.copyFileSync(pdfPath, path.join(MINERU_FAILED_DIR, `${entry.arxivId}.pdf`));
-              }
               result.papers.push({
-                id: entry.baseId,
-                arxivId: entry.arxivId,
+                id: storageId,
+                source: entry.source,
+                arxivId: entry.source === 'arxiv' ? (entry.arxivId ?? entry.sourceId) : entry.sourceId,
                 title: entry.title,
-                status: 'parse_failed',
+                status: 'download_failed',
                 error: errorMessage(e),
               });
-            } finally {
-              fs.rmSync(pdfPath, { force: true });
             }
-          } catch (e) {
-            result.papers.push({
-              id: entry.baseId,
-              arxivId: entry.arxivId,
-              title: entry.title,
-              status: 'download_failed',
-              error: errorMessage(e),
-            });
           }
         }
       } catch (e) {

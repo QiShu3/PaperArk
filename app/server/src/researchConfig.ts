@@ -1,14 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PAPERS_ROOT } from './paths.js';
+import { AVAILABLE_SOURCES, SOURCE_INFO } from './sources.js';
 
 export const RESEARCH_CONFIG_FILE = path.join(PAPERS_ROOT, 'research.json');
 
+export interface ResearchQuery {
+  source: string;
+  query: string;
+}
+
 export interface ResearchDirection {
   name: string;
-  query: string;
   enabled: boolean;
   maxPerRun?: number;
+  queries: ResearchQuery[];
 }
 
 export interface ResearchSchedule {
@@ -28,8 +34,13 @@ export const DEFAULT_CONFIG: ResearchConfig = {
   directions: [
     {
       name: '基于扩散模型的对抗攻击',
-      query: 'abs:"diffusion model" AND abs:adversarial AND abs:attack',
       enabled: true,
+      queries: [
+        {
+          source: 'arxiv',
+          query: 'abs:"diffusion model" AND abs:adversarial AND abs:attack',
+        },
+      ],
     },
   ],
 };
@@ -39,19 +50,43 @@ function clampPositiveInt(v: unknown, fallback: number): number {
   return Number.isNaN(n) || n < 1 ? fallback : n;
 }
 
+function normalizeQueries(raw: unknown): ResearchQuery[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const queries: ResearchQuery[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const q = item as Record<string, unknown>;
+    const source = typeof q.source === 'string' ? q.source.trim().toLowerCase() : '';
+    const query = typeof q.query === 'string' ? q.query.trim() : '';
+    if (!source || !query) continue;
+    if (!AVAILABLE_SOURCES.includes(source)) continue;
+    if (seen.has(source)) continue;
+    seen.add(source);
+    queries.push({ source, query });
+  }
+  return queries;
+}
+
 function normalizeDirection(raw: unknown, seen: Set<string>): ResearchDirection | null {
   if (!raw || typeof raw !== 'object') return null;
   const d = raw as Record<string, unknown>;
   const name = typeof d.name === 'string' ? d.name.trim() : '';
-  const query = typeof d.query === 'string' ? d.query.trim() : '';
-  if (!name || !query) return null;
-  if (seen.has(name)) return null;
+  if (!name || seen.has(name)) return null;
   seen.add(name);
+
+  // 旧配置兼容：只有单条 query（无 queries 数组）时，视为 arXiv 源查询。
+  let queries = normalizeQueries(d.queries);
+  if (queries.length === 0 && typeof d.query === 'string' && d.query.trim()) {
+    queries = [{ source: 'arxiv', query: d.query.trim() }];
+  }
+  if (queries.length === 0) return null;
+
   return {
     name,
-    query,
     enabled: d.enabled !== false,
     maxPerRun: d.maxPerRun === undefined ? undefined : clampPositiveInt(d.maxPerRun, 1),
+    queries,
   };
 }
 
@@ -100,22 +135,32 @@ export function writeResearchConfig(config: ResearchConfig): ResearchConfig {
   return next;
 }
 
+function buildQueries(input: { queries?: unknown; query?: unknown }): ResearchQuery[] {
+  const fromQueries = normalizeQueries(input.queries);
+  if (fromQueries.length > 0) return fromQueries;
+  if (typeof input.query === 'string' && input.query.trim()) {
+    return [{ source: 'arxiv', query: input.query.trim() }];
+  }
+  return [];
+}
+
 export function addDirection(input: {
   name?: unknown;
   query?: unknown;
+  queries?: unknown;
   enabled?: unknown;
   maxPerRun?: unknown;
 }): ResearchDirection {
   const name = typeof input.name === 'string' ? input.name.trim() : '';
-  const query = typeof input.query === 'string' ? input.query.trim() : '';
-  if (!name || !query) throw new Error('名称和查询词不能为空');
+  const queries = buildQueries(input);
+  if (!name || queries.length === 0) throw new Error('名称和查询词不能为空');
   const cfg = readResearchConfig();
   if (cfg.directions.some((d) => d.name === name)) throw new Error('研究方向已存在');
   const dir: ResearchDirection = {
     name,
-    query,
     enabled: input.enabled !== false,
     maxPerRun: input.maxPerRun === undefined ? undefined : clampPositiveInt(input.maxPerRun, 1),
+    queries,
   };
   cfg.directions.push(dir);
   writeResearchConfig(cfg);
@@ -124,15 +169,15 @@ export function addDirection(input: {
 
 export function updateDirection(
   name: string,
-  patch: { query?: unknown; enabled?: unknown; maxPerRun?: unknown },
+  patch: { queries?: unknown; query?: unknown; enabled?: unknown; maxPerRun?: unknown },
 ): ResearchDirection | null {
   const cfg = readResearchConfig();
   const dir = cfg.directions.find((d) => d.name === name);
   if (!dir) return null;
-  if (patch.query !== undefined) {
-    const query = typeof patch.query === 'string' ? patch.query.trim() : '';
-    if (!query) throw new Error('查询词不能为空');
-    dir.query = query;
+  if (patch.queries !== undefined || patch.query !== undefined) {
+    const queries = buildQueries(patch);
+    if (queries.length === 0) throw new Error('查询词不能为空');
+    dir.queries = queries;
   }
   if (patch.enabled !== undefined) dir.enabled = patch.enabled !== false;
   if (patch.maxPerRun !== undefined) dir.maxPerRun = clampPositiveInt(patch.maxPerRun, 1);
@@ -147,4 +192,12 @@ export function deleteDirection(name: string): boolean {
   cfg.directions.splice(idx, 1);
   writeResearchConfig(cfg);
   return true;
+}
+
+export function availableSources(): { source: string; label: string; download: boolean }[] {
+  return AVAILABLE_SOURCES.map((s) => ({
+    source: s,
+    label: SOURCE_INFO[s]?.label ?? s,
+    download: SOURCE_INFO[s]?.download ?? false,
+  }));
 }

@@ -681,3 +681,69 @@ PaperReader → 内容标签: Markdown | PDF | PDF（中文）| 分块
 | TypeScript 编译 | ✅ |
 | Vite 构建 | ✅（JS gzip ~530KB，含 antd 全量） |
 | 旧 web 回归 | 未动，可随时回退 |
+
+---
+
+## Phase 11 — 自动搜索多源化 + 来源/DOI 筛选（2026-08-11）
+
+### 功能
+
+自动收录从「仅 arXiv 单源」扩展为 **arXiv + OpenAlex + IACR** 三源（`AVAILABLE_SOURCES` 白名单，源可在 `sources.ts` 常量表扩展）；每个方向可配**每源独立查询词**；跨源用 **DOI 优先去重**；元数据源（OpenAlex 等无原生托管）做发现 + **DOI 回填**；列表页新增**来源 / 有 DOI** 筛选维度。
+
+### 关键设计
+
+- **源常量**（`sources.ts`）：`SOURCE_INFO`（label + download 能力）、`AVAILABLE_SOURCES`、`PaperEntry` 类型、`sanitizeStorageId`（arxiv 保留版本化 ID，其余 `source-sourceId` 替换 `/` 等非法字符——IACR paper_id 含斜杠如 `2026/1331`）
+- **配置模型**（`researchConfig.ts`）：方向 `query` → `queries: {source, query}[]`；旧配置（单 `query`）读时自动迁移为 `[{source:'arxiv', query}]`；`GET /api/research/directions` 返回 `availableSources`
+- **检索链路**（`paperClient.ts` + `research.ts`）：
+  - `searchEntries(query, source, maxResults)` 单源调用 MCP `search_papers`；字段化 arXiv 查询（`abs:` 等）仍直连 arXiv API
+  - 下载优先级：条目自带 `pdf_url` 直连（`fetchPdfUrl`，%PDF 校验，OpenAlex 主路径）→ MCP `download_with_fallback`（源站→OA 仓库→Unpaywall，Sci-Hub 关闭）→ arXiv 直连降级
+  - 去重：`dedupeKeysOf` 生成 DOI / `source:sourceId`（arxiv 去版本）/ 标题归一化三路候选 key；命中已有论文时用搜索到的 DOI **回填**库内 `meta.doi`
+- **数据模型**：`meta.ts`/`store.ts` 新增 `sourceId`、`doi` 字段全链路透传；`meta.source` 记 `${source}-auto`（如 `openalex-auto`）；存量 arXiv 论文惰性按 `arxiv:<normalizeArxivId(id)>` 参与去重
+- **前端**：ResearchPage 方向弹窗改「源查询条目」列表（源下拉 + 查询词 + 增删）；PaperList 新增来源标签（动态聚合）与「有 DOI」筛选，「自动收录」判定改为 `source.endsWith('-auto')`
+- **冒烟脚本**（`server/scripts/smoke-mcp.ts` / `smoke-download.ts`，npm `smoke:src` / `smoke:dl`）：真实拉起 `uvx paper-search-mcp` 验证五源搜索字段解析与下载链路
+
+### 联调实测（2026-08-11，真实 MCP 0.1.4）
+
+- **arxiv**：3 篇正常，无 DOI（预期），paper_id 带版本号
+- **openalex**：命中「Attention Is All You Need」，DOI + 部分 `pdf_url`，`paper_id=W2626778328`
+- **iacr**：`paper_id=2026/1331` **确认含斜杠**（sanitize 后 `iacr-2026-1331`）
+- **semantic**：直连 API `HTTP 429`（匿名限流）→ **需配 `PAPER_SEARCH_MCP_SEMANTIC_SCHOLAR_API_KEY` 才稳定，第一版未纳入白名单**
+- **zenodo**：MCP 0.1.4 上游 bug（`published_date` isoformat）→ 暂缓
+- **下载**：本机 IP 被 Cloudflare 拦截（IACR/部分 OA 直链 403），属环境问题；生产不同 IP 可能不受影响
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/sources.ts                (源常量 / PaperEntry / sanitizeStorageId)
+  app/server/scripts/smoke-mcp.ts          (搜索冒烟，真实 MCP)
+  app/server/scripts/smoke-download.ts     (下载冒烟)
+
+修改:
+  app/server/src/arxiv.ts                  (+ arxivEntryToPaper 适配)
+  app/server/src/paperClient.ts            (searchEntries 单源 / fetchPdfUrl / hitToPaperEntry 分号解析)
+  app/server/src/researchConfig.ts         (queries 模型 + 迁移 + availableSources)
+  app/server/src/research.ts               (多源流水线 / 三路去重 / DOI 回填 / 下载优先级)
+  app/server/src/store.ts / meta.ts        (+ sourceId / doi 字段)
+  app/server/src/index.ts                  (GET directions 返回 availableSources)
+  app/server/package.json                  (+ smoke:src / smoke:dl)
+  app/web-next/src/types.ts / api.ts       (ResearchQuery / Paper.doi+sourceId / 接口参数)
+  app/web-next/src/pages/ResearchPage.tsx  (方向弹窗多源条目 + 运行历史来源徽标)
+  app/web-next/src/pages/PaperList.tsx     (来源 / 有 DOI 筛选 + 来源徽标)
+  app/server/src/__tests__/research.test.ts   (多源 / DOI 去重 / 回填 / 迁移)
+  app/server/src/__tests__/paperClient.test.ts(单源参数 / 分号解析 / fetchPdfUrl)
+  app/server/src/__tests__/chat.api.test.ts   (queries / sourceId / doi 断言)
+  app/web-next/src/__tests__/ResearchPage.test.tsx / PaperList.test.tsx
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 103 tests ✅（原 91 + 新增 12） |
+| 前端单元 + 集成 | 42 tests ✅（原 40 + 新增 2） |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |
+| 真实 MCP 冒烟（搜索） | ✅（arxiv/openalex/iacr 解析正确） |
+| 真实 MCP 冒烟（下载） | ✅ arxiv；iacr/OA 403 属环境问题如实上报 |
