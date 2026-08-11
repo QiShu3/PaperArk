@@ -21,6 +21,7 @@ const settings: Settings = {
   sources: [
     { source: 'arxiv', label: 'arXiv', download: true, enabled: true, hasKey: false },
     { source: 'openalex', label: 'OpenAlex', download: false, note: '元数据发现', enabled: true, hasKey: false },
+    { source: 'iacr', label: 'IACR', download: true, enabled: true, hasKey: false },
     {
       source: 'semantic',
       label: 'Semantic Scholar',
@@ -99,7 +100,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: /测试连接/ })).toBeDisabled();
   });
 
-  it('renders data sources with capability tags and key inputs', () => {
+  it('renders visible data sources and hides semantic/zenodo', () => {
     renderDialog();
 
     expect(screen.getByText('数据源')).toBeInTheDocument();
@@ -107,12 +108,12 @@ describe('SettingsDialog', () => {
     expect(screen.getAllByText('可下载 PDF').length).toBeGreaterThan(0);
     expect(screen.getByText('OpenAlex')).toBeInTheDocument();
     expect(screen.getByText('仅元数据')).toBeInTheDocument();
-    expect(screen.getByText('Semantic Scholar')).toBeInTheDocument();
-    expect(screen.getByLabelText('Semantic Scholar API Key')).toBeInTheDocument();
-    expect(screen.getByText('已配置')).toBeInTheDocument();
+    expect(screen.getByText('IACR')).toBeInTheDocument();
+    expect(screen.queryByText('Semantic Scholar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Zenodo')).not.toBeInTheDocument();
   });
 
-  it('toggles a source and submits its key on save', async () => {
+  it('toggles a source on save', async () => {
     const onSettingsChange = vi.fn();
     render(
       <App>
@@ -125,29 +126,18 @@ describe('SettingsDialog', () => {
       </App>,
     );
 
-    const semanticToggle = screen.getByLabelText('启用 Semantic Scholar');
-    fireEvent.click(semanticToggle);
-
-    fireEvent.change(screen.getByLabelText('Semantic Scholar API Key'), {
-      target: { value: 's2-new-key' },
-    });
+    const openalexToggle = screen.getByLabelText('启用 OpenAlex');
+    fireEvent.click(openalexToggle);
 
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
 
     await waitFor(() => {
-      expect(onSettingsChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sources: expect.arrayContaining([
-            expect.objectContaining({ source: 'semantic', enabled: true, key: 's2-new-key' }),
-          ]),
-        }),
-      );
+      const payload = onSettingsChange.mock.calls[0][0] as Settings;
+      const openalex = payload.sources?.find((s) => s.source === 'openalex');
+      expect(openalex?.enabled).toBe(false);
+      const arxiv = payload.sources?.find((s) => s.source === 'arxiv');
+      expect(arxiv?.enabled).toBe(true);
+      expect(payload.sources?.some((s) => s.source === 'semantic')).toBe(false);
     });
-    const payload = onSettingsChange.mock.calls[0][0] as Settings;
-    const semantic = payload.sources?.find((s) => s.source === 'semantic');
-    expect(semantic?.enabled).toBe(true);
-    expect(semantic?.key).toBe('s2-new-key');
-    const arxiv = payload.sources?.find((s) => s.source === 'arxiv');
-    expect(arxiv?.enabled).toBe(true);
   });
 });

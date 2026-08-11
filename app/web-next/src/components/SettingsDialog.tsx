@@ -16,6 +16,9 @@ interface SourceRow extends SourceSetting {
   keyInput: string;
 }
 
+/** 设置界面暂时不展示的源（Semantic Scholar 需配 key、Zenodo 上游 bug）。 */
+const HIDDEN_SOURCES = new Set(['semantic', 'zenodo']);
+
 export default function SettingsDialog({ open, onOpenChange, settings, onSettingsChange }: Props) {
   const { message } = App.useApp();
   const [apiKey, setApiKey] = useState(settings.apiKey);
@@ -33,10 +36,12 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
       setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL);
       setTestResult(null);
       setSources(
-        (settings.sources ?? []).map((s) => ({
-          ...s,
-          keyInput: '',
-        })),
+        (settings.sources ?? [])
+          .filter((s) => !HIDDEN_SOURCES.has(s.source))
+          .map((s) => ({
+            ...s,
+            keyInput: '',
+          })),
       );
     }
   }, [open, settings]);
