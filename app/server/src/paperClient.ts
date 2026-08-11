@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, type StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { PaperEntry } from './sources.js';
+import { SOURCE_INFO, type PaperEntry } from './sources.js';
+import { readSettings } from './settingsStore.js';
 import { logger } from './logger.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -40,10 +41,33 @@ export function paperSearchMcpEnabled(): boolean {
   return process.env.PAPER_SEARCH_MCP_DISABLED !== '1';
 }
 
+/** 把设置界面配置的源 key 映射为 MCP 子进程需要的环境变量（仅启用的源）。 */
+function sourceKeyEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  const { sources } = readSettings();
+  for (const source of Object.keys(sources)) {
+    const setting = sources[source];
+    const keyEnv = SOURCE_INFO[source]?.keyEnv;
+    if (!keyEnv || !setting?.enabled || !setting.key) continue;
+    env[keyEnv] = setting.key;
+  }
+  return env;
+}
+
 function serverParams(): StdioServerParameters {
   const command = process.env.PAPER_SEARCH_MCP_CMD || 'uvx';
   const rawArgs = process.env.PAPER_SEARCH_MCP_ARGS || 'paper-search-mcp';
-  return { command, args: rawArgs.split(/\s+/).filter(Boolean), stderr: 'pipe' };
+  const params: StdioServerParameters = {
+    command,
+    args: rawArgs.split(/\s+/).filter(Boolean),
+    stderr: 'pipe',
+  };
+  const keyEnv = sourceKeyEnv();
+  if (Object.keys(keyEnv).length > 0) {
+    // StdioClientTransport 的 env 是整体替换语义，需合并父进程环境。
+    params.env = Object.assign({}, process.env, keyEnv) as Record<string, string>;
+  }
+  return params;
 }
 
 async function connect(): Promise<Client> {

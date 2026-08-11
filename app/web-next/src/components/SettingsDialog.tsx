@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { App, Button, Form, Input, Modal, Segmented, Typography } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, LinkOutlined, LoadingOutlined, LockOutlined, RobotOutlined } from '@ant-design/icons';
-import type { Settings } from '@/types';
+import { App, Button, Divider, Form, Input, Modal, Segmented, Switch, Tag, Typography } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, DatabaseOutlined, LinkOutlined, LoadingOutlined, LockOutlined, RobotOutlined } from '@ant-design/icons';
+import type { Settings, SourceSetting } from '@/types';
 import { api } from '@/api';
 import { DEFAULT_BASE_URL } from '@/lib/settings';
 
@@ -12,6 +12,10 @@ interface Props {
   onSettingsChange: (s: Settings) => void;
 }
 
+interface SourceRow extends SourceSetting {
+  keyInput: string;
+}
+
 export default function SettingsDialog({ open, onOpenChange, settings, onSettingsChange }: Props) {
   const { message } = App.useApp();
   const [apiKey, setApiKey] = useState(settings.apiKey);
@@ -20,6 +24,7 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [sources, setSources] = useState<SourceRow[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -27,11 +32,36 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
       setModel(settings.model);
       setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL);
       setTestResult(null);
+      setSources(
+        (settings.sources ?? []).map((s) => ({
+          ...s,
+          keyInput: '',
+        })),
+      );
     }
   }, [open, settings]);
 
+  const updateSource = (source: string, patch: Partial<SourceRow>) => {
+    setSources((cur) => cur.map((s) => (s.source === source ? { ...s, ...patch } : s)));
+  };
+
   const handleSave = () => {
-    const next: Settings = { apiKey: apiKey.trim(), model, baseUrl: baseUrl.trim() || DEFAULT_BASE_URL };
+    const next: Settings = {
+      apiKey: apiKey.trim(),
+      model,
+      baseUrl: baseUrl.trim() || DEFAULT_BASE_URL,
+      sources: sources.map((s) => ({
+        source: s.source,
+        label: s.label,
+        download: s.download,
+        note: s.note,
+        keyEnv: s.keyEnv,
+        keyLabel: s.keyLabel,
+        enabled: s.enabled,
+        key: s.keyInput.trim() || undefined,
+        hasKey: s.hasKey,
+      })),
+    };
     onSettingsChange(next);
     onOpenChange(false);
   };
@@ -65,7 +95,7 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
       okText="保存"
       cancelText="取消"
       onOk={handleSave}
-      width={480}
+      width={520}
       destroyOnHidden
     >
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -117,9 +147,74 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
           </Typography.Paragraph>
         </div>
 
+        <Divider style={{ margin: '4px 0' }} />
+
+        <div>
+          <FlexBetween>
+            <Typography.Text strong style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <DatabaseOutlined /> 数据源
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              自动搜索使用的论文来源
+            </Typography.Text>
+          </FlexBetween>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+            {sources.map((s) => (
+              <div
+                key={s.source}
+                style={{
+                  border: '1px solid rgba(5,5,5,0.08)',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  opacity: s.enabled ? 1 : 0.6,
+                }}
+              >
+                <FlexBetween>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Typography.Text strong>{s.label}</Typography.Text>
+                    <Tag color={s.download ? 'blue' : 'orange'} style={{ fontSize: 11, marginRight: 0 }}>
+                      {s.download ? '可下载 PDF' : '仅元数据'}
+                    </Tag>
+                  </div>
+                  <Switch
+                    checked={s.enabled}
+                    onChange={(v) => updateSource(s.source, { enabled: v })}
+                    size="small"
+                    aria-label={`启用 ${s.label}`}
+                  />
+                </FlexBetween>
+                {s.note && (
+                  <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 4, marginBottom: 0 }}>
+                    {s.note}
+                  </Typography.Paragraph>
+                )}
+                {s.keyEnv && (
+                  <Input
+                    value={s.keyInput}
+                    onChange={(e) => updateSource(s.source, { keyInput: e.target.value })}
+                    placeholder={s.keyLabel ?? 'API Key'}
+                    type="password"
+                    size="small"
+                    style={{ marginTop: 8 }}
+                    suffix={
+                      !s.keyInput && s.hasKey ? (
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          已配置
+                        </Typography.Text>
+                      ) : undefined
+                    }
+                    aria-label={`${s.label} API Key`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: 8, padding: '8px 12px' }}>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            API Key 与 Base URL 保存在服务端 settings.json，通过后端代理转发，全程不经过第三方服务器。
+            API Key 与数据源配置保存在服务端 settings.json，通过后端代理转发，全程不经过第三方服务器。
           </Typography.Text>
         </div>
 
@@ -147,5 +242,13 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
         </Button>
       </div>
     </Modal>
+  );
+}
+
+function FlexBetween({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      {children}
+    </div>
   );
 }

@@ -747,3 +747,57 @@ PaperReader → 内容标签: Markdown | PDF | PDF（中文）| 分块
 | Vite 构建 | ✅ |
 | 真实 MCP 冒烟（搜索） | ✅（arxiv/openalex/iacr 解析正确） |
 | 真实 MCP 冒烟（下载） | ✅ arxiv；iacr/OA 403 属环境问题如实上报 |
+
+---
+
+## Phase 12 — 数据源配置中心（2026-08-11）
+
+### 功能
+
+在**设置界面**（SettingsDialog，配 API Key 的那个弹窗）新增「数据源」区块，可视化配置自动搜索使用的论文源：
+
+- **全源可见**：所有已知源（含默认停用的 Semantic Scholar / Zenodo）列出，标注下载能力（可下载 PDF / 仅元数据）、说明、默认启停状态
+- **启停开关**：每源 Switch 独立开关；自动搜索运行时自动跳过禁用的源；方向弹窗的源下拉只显示已启用的源
+- **每源 API Key**：支持 key 的源（如 Semantic Scholar）行内嵌输入框；留空保存 = 保持原值，已配置时显示「已配置」灰标；key 明文存 `settings.json`（与 apiKey 同模式），启动 MCP 子进程时透传为 `PAPER_SEARCH_MCP_*` 环境变量（`StdioClientTransport.env` 需与 `process.env` 合并，因其是整体替换语义）
+- **迁移**：旧 `AVAILABLE_SOURCES` 白名单 → 每源 `defaultEnabled`；旧 `settings.json`（无 sources）读时自动补默认
+
+### 关键改动
+
+- `sources.ts`：`SOURCE_INFO` 扩展 `note/keyEnv/keyLabel/defaultEnabled`；`AVAILABLE_SOURCES` 移除，新增 `ALL_KNOWN_SOURCES`
+- `settingsStore.ts`：`AppSettings.sources: Record<source, {enabled, key}>` + 默认合并 + `sourceViews()`（不含 key 明文）
+- `paperClient.ts`：`serverParams()` 读 settings 映射 key → env 透传（懒连接，下次搜索连接生效）
+- `research.ts`：跑方向 queries 前跳过 `settings.sources[source].enabled === false` 的源
+- `index.ts`：`GET/PUT /api/settings` 返回/接收 `sources: SourceView[]`
+- `researchConfig.ts`：`availableSources()` 改为返回已启用的源
+- 前端：`Settings` 类型加 `sources`；SettingsDialog 数据源区块（Switch + 能力 Tag + note + key 输入）
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/__tests__/settingsStore.test.ts    (默认合并/读写/无明文 key，5 用例)
+
+修改:
+  app/server/src/sources.ts         (SOURCE_INFO 扩展 / ALL_KNOWN_SOURCES)
+  app/server/src/settingsStore.ts   (sources 合并读写 / sourceViews)
+  app/server/src/paperClient.ts     (serverParams env 透传)
+  app/server/src/research.ts        (跳过禁用源)
+  app/server/src/researchConfig.ts  (availableSources → 启用源)
+  app/server/src/index.ts           (settings API 返回 sources)
+  app/web-next/src/types.ts         (Settings.sources / SourceSetting)
+  app/web-next/src/api.ts           (getSettings/saveSettings 类型)
+  app/web-next/src/lib/settings.ts  (默认 sources)
+  app/web-next/src/components/SettingsDialog.tsx (数据源区块)
+  app/web-next/src/__tests__/SettingsDialog.test.tsx (数据源渲染/启停+key 提交)
+  app/server/src/__tests__/chat.api.test.ts  (settings/sources API)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 110 tests ✅（原 103 + 新增 7） |
+| 前端单元 + 集成 | 44 tests ✅（原 42 + 新增 2） |
+| TypeScript 编译 | ✅ |
+| Vite 构建 | ✅ |

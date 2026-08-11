@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PAPERS_ROOT } from './paths.js';
-import { AVAILABLE_SOURCES, SOURCE_INFO } from './sources.js';
+import { ALL_KNOWN_SOURCES, SOURCE_INFO } from './sources.js';
+import { readSettings } from './settingsStore.js';
 
 export const RESEARCH_CONFIG_FILE = path.join(PAPERS_ROOT, 'research.json');
 
@@ -60,7 +61,7 @@ function normalizeQueries(raw: unknown): ResearchQuery[] {
     const source = typeof q.source === 'string' ? q.source.trim().toLowerCase() : '';
     const query = typeof q.query === 'string' ? q.query.trim() : '';
     if (!source || !query) continue;
-    if (!AVAILABLE_SOURCES.includes(source)) continue;
+    if (!ALL_KNOWN_SOURCES.includes(source)) continue;
     if (seen.has(source)) continue;
     seen.add(source);
     queries.push({ source, query });
@@ -195,7 +196,8 @@ export function deleteDirection(name: string): boolean {
 }
 
 export function availableSources(): { source: string; label: string; download: boolean }[] {
-  return AVAILABLE_SOURCES.map((s) => ({
+  const { sources } = readSettings();
+  return ALL_KNOWN_SOURCES.filter((s) => sources[s]?.enabled).map((s) => ({
     source: s,
     label: SOURCE_INFO[s]?.label ?? s,
     download: SOURCE_INFO[s]?.download ?? false,

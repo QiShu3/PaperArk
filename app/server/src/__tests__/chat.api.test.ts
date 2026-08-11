@@ -446,3 +446,37 @@ describe('research endpoints', () => {
     );
   });
 });
+
+describe('settings endpoints', () => {
+  it('returns source views without key plaintext', async () => {
+    const res = await request(app).get('/api/settings');
+    expect(res.status).toBe(200);
+    const semantic = res.body.sources.find((s: { source: string }) => s.source === 'semantic');
+    expect(semantic).toMatchObject({
+      label: 'Semantic Scholar',
+      download: true,
+      keyEnv: 'PAPER_SEARCH_MCP_SEMANTIC_SCHOLAR_API_KEY',
+      enabled: false,
+      hasKey: false,
+    });
+    expect(Object.keys(semantic)).not.toContain('key');
+  });
+
+  it('persists source enablement and key, then reflects in availableSources', async () => {
+    const res = await request(app)
+      .put('/api/settings')
+      .send({ sources: [{ source: 'semantic', enabled: true, key: 's2-secret' }] });
+    expect(res.status).toBe(200);
+    const semantic = res.body.sources.find((s: { source: string }) => s.source === 'semantic');
+    expect(semantic.enabled).toBe(true);
+    expect(semantic.hasKey).toBe(true);
+    expect(Object.keys(semantic)).not.toContain('key');
+
+    const dirs = await request(app).get('/api/research/directions');
+    expect(dirs.body.availableSources.map((s: { source: string }) => s.source)).toContain('semantic');
+
+    await request(app)
+      .put('/api/settings')
+      .send({ sources: [{ source: 'semantic', enabled: false }] });
+  });
+});

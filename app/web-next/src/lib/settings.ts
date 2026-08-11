@@ -11,9 +11,10 @@ export function getSettings(): Settings {
       apiKey: raw.apiKey || '',
       model: raw.model || 'v4-flash',
       baseUrl: raw.baseUrl || DEFAULT_BASE_URL,
+      sources: raw.sources ?? [],
     };
   } catch {
-    return { apiKey: '', model: 'v4-flash', baseUrl: DEFAULT_BASE_URL };
+    return { apiKey: '', model: 'v4-flash', baseUrl: DEFAULT_BASE_URL, sources: [] };
   }
 }
 

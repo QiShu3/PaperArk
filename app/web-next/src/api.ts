@@ -250,13 +250,24 @@ export const api = {
         body: JSON.stringify(body),
       },
     ),
-  getSettings: () => http<{ apiKey: string; model: string; baseUrl?: string }>('/api/settings'),
-  saveSettings: (s: { apiKey?: string; model?: string; baseUrl?: string }) =>
-    http<{ apiKey: string; model: string; baseUrl?: string }>('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(s),
-    }),
+  getSettings: () =>
+    http<{ apiKey: string; model: string; baseUrl?: string; sources: import('./types').SourceSetting[] }>(
+      '/api/settings',
+    ),
+  saveSettings: (s: {
+    apiKey?: string;
+    model?: string;
+    baseUrl?: string;
+    sources?: { source: string; enabled: boolean; key?: string }[];
+  }) =>
+    http<{ apiKey: string; model: string; baseUrl?: string; sources: import('./types').SourceSetting[] }>(
+      '/api/settings',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(s),
+      },
+    ),
   testSettings: (s: { apiKey: string; model: string; baseUrl?: string }) =>
     http<{
       ok: boolean;

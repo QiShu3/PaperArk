@@ -254,12 +254,23 @@ app.post('/api/papers/:id/sessions/:sid/logs/round-report', (req, res) => {
 });
 
 app.get('/api/settings', (_req, res) => {
-  res.json(settingsStore.readSettings());
+  const s = settingsStore.readSettings();
+  res.json({
+    apiKey: s.apiKey,
+    model: s.model,
+    baseUrl: s.baseUrl,
+    sources: settingsStore.sourceViews(s),
+  });
 });
 
 app.put('/api/settings', (req, res) => {
   const next = settingsStore.writeSettings(req.body ?? {});
-  res.json(next);
+  res.json({
+    apiKey: next.apiKey,
+    model: next.model,
+    baseUrl: next.baseUrl,
+    sources: settingsStore.sourceViews(next),
+  });
 });
 
 app.get('/api/research/directions', (_req, res) => {

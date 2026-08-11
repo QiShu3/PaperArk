@@ -267,6 +267,7 @@ async function runCheck(runId: string): Promise<RunRecord> {
     const cfg = readResearchConfig();
     const library = buildLibraryIndex(listPapers());
     const failed = failedIds();
+    const settings = readSettings();
 
     for (const dir of cfg.directions.filter((d) => d.enabled)) {
       const result: RunDirectionResult = {
@@ -279,6 +280,10 @@ async function runCheck(runId: string): Promise<RunRecord> {
       const seen = new Set<string>();
       try {
         for (const q of dir.queries) {
+          if (!(settings.sources[q.source]?.enabled ?? false)) {
+            logger.info({ source: q.source, direction: dir.name }, 'source disabled, skipping direction query');
+            continue;
+          }
           await delay(arxivDelayMs());
           let entries: PaperEntry[] = [];
           try {

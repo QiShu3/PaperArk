@@ -55,10 +55,23 @@ export interface ChatMessage {
   name?: string;
 }
 
+export interface SourceSetting {
+  source: string;
+  label: string;
+  download: boolean;
+  note?: string;
+  keyEnv?: string;
+  keyLabel?: string;
+  enabled: boolean;
+  hasKey: boolean;
+  key?: string;
+}
+
 export interface Settings {
   apiKey: string;
   model: string;
   baseUrl?: string;
+  sources?: SourceSetting[];
 }
 
 export interface ChatSession {
