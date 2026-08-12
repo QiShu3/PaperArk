@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from './db.js';
-import { readSettings, normalizeBaseUrl } from './settingsStore.js';
+import { readSettings, getActiveProvider, normalizeBaseUrl } from './settingsStore.js';
 import { logger, getRequestId } from './logger.js';
 
 const router = Router();
@@ -60,9 +60,10 @@ const logStmt = db.prepare(
 router.post('/chat/test', async (req: Request, res: Response) => {
   const raw = req.body as Record<string, unknown> | undefined;
   const settings = readSettings();
+  const active = getActiveProvider(settings);
   const apiKey =
-    typeof raw?.apiKey === 'string' && raw.apiKey.trim() ? raw.apiKey.trim() : settings.apiKey;
-  const baseUrl = normalizeBaseUrl(raw?.baseUrl ?? settings.baseUrl);
+    typeof raw?.apiKey === 'string' && raw.apiKey.trim() ? raw.apiKey.trim() : active.apiKey;
+  const baseUrl = normalizeBaseUrl(raw?.baseUrl ?? active.baseUrl);
   const model = toModel(
     typeof raw?.model === 'string' && raw.model ? raw.model : settings.model,
   );
@@ -165,7 +166,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       body.tools = tools;
     }
 
-    const baseUrl = readSettings().baseUrl;
+    const baseUrl = getActiveProvider(readSettings()).baseUrl;
     const resp = await fetchWithRetry(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {

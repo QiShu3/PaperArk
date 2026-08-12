@@ -67,10 +67,18 @@ export interface SourceSetting {
   key?: string;
 }
 
-export interface Settings {
+export interface LLMProvider {
+  id: string;
+  name: string;
   apiKey: string;
+  baseUrl: string;
+}
+
+export interface Settings {
+  providers: LLMProvider[];
+  activeProviderId: string;
   model: string;
-  baseUrl?: string;
+  mineruToken?: string;
   sources?: SourceSetting[];
 }
 

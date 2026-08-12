@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PAPERS_ROOT, MD_TRANSLATION_DIR } from './paths.js';
-import { readSettings } from './settingsStore.js';
+import { readSettings, getActiveProvider } from './settingsStore.js';
 import { getRawMarkdown } from './store.js';
 import { logger } from './logger.js';
 
@@ -214,7 +214,8 @@ async function translateBatch(
 
 async function runJob(paperId: string): Promise<void> {
   const settings = readSettings();
-  if (!settings.apiKey) throw new Error('请先在设置中配置 API Key');
+  const active = getActiveProvider(settings);
+  if (!active.apiKey) throw new Error('请先在设置中配置 API Key');
 
   const md = getRawMarkdown(paperId);
   if (!md.trim()) throw new Error('论文没有 Markdown 内容');
@@ -233,14 +234,14 @@ async function runJob(paperId: string): Promise<void> {
   activeCount++;
 
   const model = resolveModel(settings.model || 'v4-flash');
-  const baseUrl = settings.baseUrl || 'https://api.deepseek.com/v1';
+  const baseUrl = active.baseUrl || 'https://api.deepseek.com/v1';
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * Math.max(1, batches.length));
   timer.unref?.();
 
   try {
     const parts: string[] = [];
     for (let i = 0; i < batches.length; i++) {
-      const translated = await translateBatch(batches[i], settings.apiKey, baseUrl, model, controller.signal);
+      const translated = await translateBatch(batches[i], active.apiKey, baseUrl, model, controller.signal);
       parts.push(translated);
       const job = jobs.get(paperId);
       if (!job) return; // 已取消

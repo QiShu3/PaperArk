@@ -251,23 +251,31 @@ export const api = {
       },
     ),
   getSettings: () =>
-    http<{ apiKey: string; model: string; baseUrl?: string; sources: import('./types').SourceSetting[] }>(
-      '/api/settings',
-    ),
+    http<{
+      providers: import('./types').LLMProvider[];
+      activeProviderId: string;
+      model: string;
+      mineruToken?: string;
+      sources: import('./types').SourceSetting[];
+    }>('/api/settings'),
   saveSettings: (s: {
-    apiKey?: string;
+    providers?: import('./types').LLMProvider[];
+    activeProviderId?: string;
     model?: string;
-    baseUrl?: string;
+    mineruToken?: string;
     sources?: { source: string; enabled: boolean; key?: string }[];
   }) =>
-    http<{ apiKey: string; model: string; baseUrl?: string; sources: import('./types').SourceSetting[] }>(
-      '/api/settings',
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(s),
-      },
-    ),
+    http<{
+      providers: import('./types').LLMProvider[];
+      activeProviderId: string;
+      model: string;
+      mineruToken?: string;
+      sources: import('./types').SourceSetting[];
+    }>('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(s),
+    }),
   testSettings: (s: { apiKey: string; model: string; baseUrl?: string }) =>
     http<{
       ok: boolean;

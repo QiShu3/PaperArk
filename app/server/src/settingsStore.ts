@@ -10,10 +10,18 @@ export interface SourceSetting {
   key?: string;
 }
 
-export interface AppSettings {
+export interface LLMProvider {
+  id: string;
+  name: string;
   apiKey: string;
-  model: string;
   baseUrl: string;
+}
+
+export interface AppSettings {
+  providers: LLMProvider[];
+  activeProviderId: string;
+  model: string;
+  mineruToken: string;
   sources: Record<string, SourceSetting>;
 }
 
@@ -29,15 +37,20 @@ export interface SourceView {
   hasKey: boolean;
 }
 
+const DEEPSEEK_URL = 'https://api.deepseek.com/v1';
+
 const defaults: AppSettings = {
-  apiKey: '',
+  providers: [
+    { id: 'deepseek', name: 'DeepSeek', apiKey: '', baseUrl: DEEPSEEK_URL },
+  ],
+  activeProviderId: 'deepseek',
   model: 'v4-flash',
-  baseUrl: 'https://api.deepseek.com/v1',
+  mineruToken: '',
   sources: {},
 };
 
 export function normalizeBaseUrl(raw: unknown): string {
-  if (typeof raw !== 'string' || !raw.trim()) return defaults.baseUrl;
+  if (typeof raw !== 'string' || !raw.trim()) return DEEPSEEK_URL;
   return raw.trim().replace(/\/+$/, '');
 }
 
@@ -64,19 +77,83 @@ function readSources(raw: unknown): Record<string, SourceSetting> {
   return out;
 }
 
+function sanitizeProviderId(raw: unknown, seen: Set<string>): string {
+  const id = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  const clean = id.replace(/[^a-z0-9_-]/g, '-') || `provider-${seen.size + 1}`;
+  let out = clean;
+  let n = 2;
+  while (seen.has(out)) {
+    out = `${clean}-${n++}`;
+  }
+  seen.add(out);
+  return out;
+}
+
+function readProviders(raw: unknown, legacy: { apiKey?: unknown; baseUrl?: unknown }): LLMProvider[] {
+  const seen = new Set<string>();
+  const providers: LLMProvider[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const p = item as Record<string, unknown>;
+      const id = sanitizeProviderId(p.id, seen);
+      const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : id;
+      const apiKey = typeof p.apiKey === 'string' ? p.apiKey : '';
+      const baseUrl = normalizeBaseUrl(p.baseUrl);
+      providers.push({ id, name, apiKey, baseUrl });
+    }
+  }
+  // 旧配置迁移：有 apiKey 但没有 providers 时，生成默认 DeepSeek provider
+  if (providers.length === 0) {
+    const legacyKey = typeof legacy.apiKey === 'string' ? legacy.apiKey : '';
+    const legacyUrl = normalizeBaseUrl(legacy.baseUrl);
+    providers.push({
+      id: 'deepseek',
+      name: 'DeepSeek',
+      apiKey: legacyKey,
+      baseUrl: legacyUrl,
+    });
+  }
+  return providers;
+}
+
 export function readSettings(): AppSettings {
   try {
     const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
+    const providers = readProviders(parsed.providers, parsed);
+    let activeProviderId = typeof parsed.activeProviderId === 'string' ? parsed.activeProviderId : '';
+    if (!providers.some((p) => p.id === activeProviderId)) {
+      activeProviderId = providers[0]?.id ?? '';
+    }
     return {
-      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : defaults.apiKey,
+      providers,
+      activeProviderId,
       model: typeof parsed.model === 'string' ? parsed.model : defaults.model,
-      baseUrl: normalizeBaseUrl(parsed.baseUrl),
+      mineruToken: typeof parsed.mineruToken === 'string' ? parsed.mineruToken : defaults.mineruToken,
       sources: readSources(parsed.sources),
     };
   } catch {
-    return { ...defaults, sources: defaultSources() };
+    return {
+      providers: structuredClone(defaults.providers),
+      activeProviderId: defaults.activeProviderId,
+      model: defaults.model,
+      mineruToken: defaults.mineruToken,
+      sources: defaultSources(),
+    };
   }
+}
+
+export function getActiveProvider(settings: AppSettings): LLMProvider {
+  return (
+    settings.providers.find((p) => p.id === settings.activeProviderId) ??
+    settings.providers[0] ?? {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      apiKey: '',
+      baseUrl: DEEPSEEK_URL,
+    }
+  );
 }
 
 function mergeSourcesInput(
@@ -97,17 +174,51 @@ function mergeSourcesInput(
   return next;
 }
 
+function mergeProvidersInput(
+  current: LLMProvider[],
+  input: unknown,
+): { providers: LLMProvider[]; activeProviderId: string } {
+  const currentActive = readSettings().activeProviderId;
+  if (!Array.isArray(input) || input.length === 0) {
+    return { providers: current, activeProviderId: currentActive };
+  }
+  const seen = new Set<string>();
+  const providers: LLMProvider[] = [];
+  let activeProviderId = currentActive;
+  for (const item of input) {
+    if (!item || typeof item !== 'object') continue;
+    const p = item as Record<string, unknown>;
+    const id = sanitizeProviderId(p.id, seen);
+    const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : id;
+    const apiKey = typeof p.apiKey === 'string' ? p.apiKey : '';
+    const baseUrl = normalizeBaseUrl(p.baseUrl);
+    if (id === currentActive) activeProviderId = id;
+    providers.push({ id, name, apiKey, baseUrl });
+  }
+  if (!providers.some((p) => p.id === activeProviderId)) {
+    activeProviderId = providers[0]?.id ?? '';
+  }
+  return { providers, activeProviderId };
+}
+
 export function writeSettings(settings: {
-  apiKey?: string;
+  providers?: unknown;
+  activeProviderId?: string;
   model?: string;
-  baseUrl?: string;
+  mineruToken?: string;
   sources?: unknown;
 }): AppSettings {
   const current = readSettings();
+  const merged = mergeProvidersInput(current.providers, settings.providers);
   const next: AppSettings = {
-    apiKey: settings.apiKey ?? current.apiKey,
+    providers: merged.providers,
+    activeProviderId:
+      typeof settings.activeProviderId === 'string' &&
+      merged.providers.some((p) => p.id === settings.activeProviderId)
+        ? settings.activeProviderId
+        : merged.activeProviderId,
     model: settings.model || current.model || defaults.model,
-    baseUrl: normalizeBaseUrl(settings.baseUrl ?? current.baseUrl),
+    mineruToken: settings.mineruToken ?? current.mineruToken,
     sources: mergeSourcesInput(current.sources, settings.sources),
   };
   fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });

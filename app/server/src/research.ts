@@ -9,7 +9,7 @@ import { sanitizeStorageId, type PaperEntry } from './sources.js';
 import * as paperClient from './paperClient.js';
 import { createPaper, listPapers, updatePaper, type Paper } from './store.js';
 import { classifyTitleAbstract } from './classify.js';
-import { readSettings } from './settingsStore.js';
+import { readSettings, getActiveProvider } from './settingsStore.js';
 import * as vectorStore from './vectorStore.js';
 import { logger } from './logger.js';
 
@@ -341,14 +341,15 @@ async function runCheck(runId: string): Promise<RunRecord> {
                 });
                 let matched: string[] = [dir.name];
                 try {
-                  const settings = readSettings();
+                  const active = getActiveProvider(readSettings());
                   const directionNames = cfg.directions.map((d) => d.name);
-                  if (settings.apiKey && directionNames.length > 0) {
+                  if (active.apiKey && directionNames.length > 0) {
                     matched = await classifyTitleAbstract(
                       entry.title,
                       entry.summary,
                       directionNames,
-                      settings.apiKey,
+                      active.apiKey,
+                      active.baseUrl,
                     );
                   }
                 } catch (e) {

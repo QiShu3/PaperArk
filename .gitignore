@@ -36,5 +36,8 @@ md-translations.json
 # Secrets (contains API key)
 settings.json
 
+# Server dev logs
+app/server-dev*.log
+
 # Misc
 chat-images.png

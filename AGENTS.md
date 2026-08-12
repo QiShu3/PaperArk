@@ -835,3 +835,139 @@ PaperReader → 内容标签: Markdown | PDF | PDF（中文）| 分块
 | TypeScript 编译 | ✅ |
 
 > 注：`research.json` 尚未创建（走默认配置，仅 arXiv 一个方向）；多个 `tsx watch` 实例中仅 PID 19420 占用 3001，其余 `EADDRINUSE` 崩溃，属启动脚本重复拉起，不影响运行中的实例。
+
+---
+
+## Phase 13 — MinerU 直连 HTTP API + 设置面板两栏布局（2026-08-12）
+
+### 背景
+
+MinerU 的 `mineru-open-api` CLI 本质是云端 API 的 thin client（`extract` 走精准解析 API，需 token）。原实现 spawn 本地 CLI，对将来桌面端打包不友好（需用户单独装 CLI、Windows 需 `shell:true` hack）。改为**后端直接 `fetch` 调 MinerU 精准解析 API**，彻底移除 CLI 依赖；同时在设置面板配置 MinerU token，并把设置界面改为参考 OpenChamber 的两栏布局。
+
+### MinerU API 链路（`mineru.ts` 重写）
+
+```
+extractPdfToMd(pdfPath, id):
+  1. token = settings.mineruToken（未配置抛「请先配置 MinerU Token」）
+  2. POST /api/v4/file-urls/batch  { files:[{name, data_id:id}], model_version:"vlm" }
+     header Authorization: Bearer <token> → batch_id + file_urls[]
+  3. PUT 文件到 file_urls[0]（raw body）
+  4. GET /api/v4/extract-results/batch/{batch_id} 轮询（3s/次，10min 超时）
+     done → full_zip_url；failed → 抛错（含 err_msg）；running/pending/converting → 继续
+  5. 下载 zip → yauzl 解压（保留目录结构、防御路径穿越）→ full.md + images/
+  6. 写 MD_DIR/{id}.md，图片复制到 IMAGES_DIR
+```
+
+- 精准解析 API 上限 200MB / 200 页，超限在本地 `statSync` 提前拦截
+- 依赖：`yauzl`（解压，纯 JS 无原生依赖，桌面打包友好）
+- 函数签名 `extractPdfToMd(pdfPath, id)` 不变，`store.ts` / `import-tmp-papers.ts` 无需改动
+- CLI（`mineru-open-api`）不再被调用，但保留已安装环境不影响
+
+### 设置面板两栏布局
+
+参考 OpenChamber 设置页：Modal 宽度 520 → 680px，内部左侧分类导航（模型 / 数据源）+ 右侧内容区：
+
+- **模型**：API Key、默认模型、API Base URL、**MinerU Token**（新增，Password 输入 + mineru.net/apiManage/token 获取链接）、测试连接
+- **数据源**：各源开关 + 可选 API Key（原内容原样迁移）
+- 数据源内容需切换到「数据源」分类才渲染
+
+### 数据流
+
+- `settings.json` 新增 `mineruToken` 字段（明文，与 apiKey 同模式）；`AppSettings`/`readSettings`/`writeSettings`/settings API 全链路透传
+- 前端 `Settings` 类型、`getSettings`/`saveSettings`、`api.getSettings`/`saveSettings` 同步
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/__tests__/mineru.test.ts       (4 用例：成功全流程 / 无 token / 任务失败 / 超限)
+  app/web-next/src/__tests__/SettingsDialog.test.tsx (重写：两栏 + MinerU token 用例)
+
+修改:
+  app/server/package.json                       (+ yauzl; dev: @types/yauzl, yazl)
+  app/server/src/mineru.ts                      (重写：spawn CLI → fetch MinerU API + zip 解压)
+  app/server/src/settingsStore.ts               (+ mineruToken 字段)
+  app/server/src/index.ts                       (settings API 返回/接收 mineruToken)
+  app/server/src/__tests__/settingsStore.test.ts (+ mineruToken 读写 2 用例)
+  app/server/src/__tests__/chat.api.test.ts     (+ mineruToken 持久化 1 用例)
+  app/web-next/src/types.ts / api.ts / lib/settings.ts (透传 mineruToken)
+  app/web-next/src/components/SettingsDialog.tsx (两栏布局 + MinerU Token 输入)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 120 tests ✅（原 113 + 新增 7） |
+| 前端单元 + 集成 | 46 tests ✅（原 44 + SettingsDialog 重写净增 2） |
+| TypeScript 编译（server + web-next） | ✅ |
+| Vite 构建 | ✅ |
+
+> 待办：存量解析失败论文（2607.13336 / 2604.22084）本轮未重试；配置 MinerU Token 后可在 /research 手动补跑。
+
+---
+
+## Phase 14 — LLM 多 Provider 支持 + 设置面板三栏布局（2026-08-12）
+
+### 功能
+
+设置面板改为参考 OpenChamber 的三栏布局，并将 LLM 配置从单一 `apiKey/baseUrl` 升级为**多 Provider CRUD**：
+
+- **三栏布局**（仅「模型」分类）：左导航（模型/数据源）→ 中栏提供商列表（**LLM / MinerU**）→ 右栏详情
+- **LLM 提供商 CRUD**：默认内置一个 DeepSeek；可新增/编辑/删除任意 OpenAI 兼容提供商（名称 + API Key + Base URL），任意一个可设为「当前使用」；全局模型（v4-flash / v4-pro）独立于提供商
+- **数据源分类**：保持原有平铺列表不变
+- **MinerU 分类**：中栏点 MinerU → 右栏 Token 输入
+- **Chat/分类/翻译/自动收录分类**统一走 `getActiveProvider(settings)` 取 apiKey + baseUrl
+
+### 数据模型
+
+`settings.json` 新结构：
+
+```json
+{
+  "providers": [
+    { "id": "deepseek", "name": "DeepSeek", "apiKey": "sk-xxx", "baseUrl": "https://api.deepseek.com/v1" }
+  ],
+  "activeProviderId": "deepseek",
+  "model": "v4-flash",
+  "mineruToken": "",
+  "sources": {}
+}
+```
+
+- **自动迁移**：旧 `{ apiKey, baseUrl }` 读取时自动生成默认 DeepSeek provider；旧字段保留不写回，用户保存后覆盖为新格式
+- `getActiveProvider(settings)`：返回 `activeProviderId` 对应 provider，兜底 providers[0]
+- provider id 自动 sanitize（非法字符 → `-`）+ 去重后缀
+
+### 修改文件清单
+
+```
+修改:
+  app/server/src/settingsStore.ts   (LLMProvider + providers + activeProviderId + getActiveProvider + 迁移)
+  app/server/src/index.ts           (settings API 返回/接收 providers + activeProviderId)
+  app/server/src/chat.ts            (/chat + /chat/test 改读 getActiveProvider)
+  app/server/src/classify.ts        (分类改读 active provider)
+  app/server/src/translateMd.ts     (翻译改读 active provider)
+  app/server/src/research.ts        (自动收录分类改读 active provider)
+  app/server/src/__tests__/settingsStore.test.ts (providers CRUD/迁移/sanitize，6 用例)
+  app/server/src/__tests__/chat.api.test.ts     (+ providers 持久化 1 用例)
+  app/server/src/__tests__/mineru.test.ts       (writeSettings 去 apiKey 参数)
+  app/web-next/src/types.ts         (LLMProvider + Settings 重构)
+  app/web-next/src/api.ts           (settings API 类型)
+  app/web-next/src/lib/settings.ts  (defaultProviders/activeProvider/getSettings 透传)
+  app/web-next/src/components/SettingsDialog.tsx (三栏布局 + Provider CRUD + MinerU)
+  app/web-next/src/pages/PaperReader.tsx / GlobalChat.tsx (apiKey → activeProvider(settings).apiKey)
+  app/web-next/src/__tests__/SettingsDialog.test.tsx (重写：三栏 + CRUD，10 用例)
+  app/web-next/src/__tests__/PaperList.test.tsx  (设置弹窗断言更新)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 126 tests ✅（原 120 + 新增 6） |
+| 前端单元 + 集成 | 49 tests ✅（原 46 + SettingsDialog 净增 3） |
+| TypeScript 编译（server + web-next） | ✅ |
+| Vite 构建 | ✅ |

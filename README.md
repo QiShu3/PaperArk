@@ -42,7 +42,7 @@ cron / POST /api/research/check → research 流水线
 
 - Node.js ≥ 18（推荐 22）
 - Python ≥ 3.9 + [uv](https://docs.astral.sh/uv/)（运行 paper-search-mcp）
-- MinerU CLI（`mineru-open-api`，npm 全局安装）
+- MinerU Token（云端解析，在设置界面配置，无需安装 CLI）
 
 ### 1. 安装依赖
 
@@ -54,13 +54,16 @@ cd app/server && npm install
 cd app/web && npm install
 ```
 
-### 2. 安装 MinerU（PDF 解析，需 token）
+### 2. 配置 MinerU（PDF 解析 token）
 
-```bash
-npm install -g mineru-open-api
-mineru-open-api auth        # 在 https://mineru.net/apiManage/token 申请后配置
-mineru-open-api auth --verify
+后端直接调用 MinerU 云端精准解析 API（无需安装 CLI）。在设置界面「模型」分类下填写 MinerU Token：
+
+```text
+获取地址：https://mineru.net/apiManage/token
 ```
+
+- 未配置 Token 时，论文入库 / 自动收录解析会报「请先配置 MinerU Token」
+- Token 明文存于 `settings.json`（与 API Key 同模式）
 
 ### 3. 安装 paper-search-mcp（自动收录的搜索/下载，可选但有回退链）
 
@@ -124,11 +127,11 @@ cd app/web && npm run dev
 
 论文对话与全局对话都新增语义检索工具（`semantic_search_chunks` / `semantic_search_library`）：问题向量化 → 向量召回 → 交叉编码器重排。向量模型部署在 GPU 服务器（`/home/qishu/project/vector-service/`），本机 SQLite 存向量，入库自动增量嵌入。
 
-### 自定义 API 端点
+### 自定义 API 提供商
 
-设置对话框可填写 API Key 与 API Base URL（任意 OpenAI 兼容端点）。Base URL 默认 `https://api.deepseek.com/v1`，模型统一映射为 `deepseek-v4-flash` / `deepseek-v4-pro`。
+设置界面「模型」分类支持**多 LLM Provider CRUD**：默认内置一个 DeepSeek，可新增/编辑/删除任意 OpenAI 兼容提供商（名称 + API Key + Base URL），并指定「当前使用」的提供商。全局模型（v4-flash / v4-pro）独立于提供商，统一映射为 `deepseek-v4-flash` / `deepseek-v4-pro`。
 
-填写后可直接点「测试连接」验证（发一次最小请求，显示响应模型与延迟），确认可用再保存。
+填写后可直接点「测试连接」验证（发一次最小请求，显示响应模型与延迟），确认可用再保存。AI 对话 / 分类 / MD 翻译 / 自动收录分类统一使用当前激活的提供商。
 
 ## 环境变量与配置
 
@@ -143,7 +146,7 @@ cd app/web && npm run dev
 | `VECTOR_SERVICE_URL` | `http://172.16.170.184:17888` | 向量服务地址 |
 | `VECTOR_SERVICE_DISABLED` | 未设置 | `1` = 关闭语义检索 |
 
-MinerU token 读取顺序：`--token` 参数 > `MINERU_TOKEN` 环境变量 > `~/.mineru/config.yaml`。
+MinerU 解析走云端精准解析 API（vlm 模型），Token 从设置界面的 `mineruToken` 读取，保存在 `settings.json`。
 
 ## 目录结构
 

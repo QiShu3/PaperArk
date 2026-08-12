@@ -11,7 +11,7 @@ import { api } from '@/api';
 import type { Paper } from '@/types';
 import ChatPanel from '@/components/ChatPanel';
 import SessionSidebar from '@/components/SessionSidebar';
-import { getSettings, loadSettings, saveSettings } from '@/lib/settings';
+import { getSettings, loadSettings, saveSettings, activeProvider } from '@/lib/settings';
 import { useQuery } from '@tanstack/react-query';
 
 const GLOBAL_PAPER_ID = '__global__';
@@ -137,7 +137,7 @@ export default function GlobalChat() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <ChatPanel
             mode="global"
-            apiKey={settings.apiKey}
+            apiKey={activeProvider(settings).apiKey}
             model={settings.model}
             onModelChange={(m) => handleSettingsChange({ ...settings, model: m })}
             quoteTexts={[]}

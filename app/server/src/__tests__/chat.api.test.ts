@@ -462,6 +462,33 @@ describe('settings endpoints', () => {
     expect(Object.keys(semantic)).not.toContain('key');
   });
 
+  it('persists mineruToken through the settings API', async () => {
+    const res = await request(app).put('/api/settings').send({ mineruToken: 'mt-abc' });
+    expect(res.status).toBe(200);
+    expect(res.body.mineruToken).toBe('mt-abc');
+
+    const get = await request(app).get('/api/settings');
+    expect(get.body.mineruToken).toBe('mt-abc');
+  });
+
+  it('persists providers and activeProviderId through the settings API', async () => {
+    const res = await request(app).put('/api/settings').send({
+      providers: [
+        { id: 'deepseek', name: 'DeepSeek', apiKey: 'sk-ds', baseUrl: 'https://a/v1' },
+        { id: 'relay', name: 'MyRelay', apiKey: 'sk-relay', baseUrl: 'https://b/v1' },
+      ],
+      activeProviderId: 'relay',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.providers).toHaveLength(2);
+    expect(res.body.activeProviderId).toBe('relay');
+
+    const get = await request(app).get('/api/settings');
+    expect(get.body.providers).toHaveLength(2);
+    expect(get.body.providers.find((p: { id: string }) => p.id === 'relay').apiKey).toBe('sk-relay');
+    expect(get.body.activeProviderId).toBe('relay');
+  });
+
   it('persists source enablement and key, then reflects in availableSources', async () => {
     const res = await request(app)
       .put('/api/settings')

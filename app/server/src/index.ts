@@ -256,9 +256,10 @@ app.post('/api/papers/:id/sessions/:sid/logs/round-report', (req, res) => {
 app.get('/api/settings', (_req, res) => {
   const s = settingsStore.readSettings();
   res.json({
-    apiKey: s.apiKey,
+    providers: s.providers,
+    activeProviderId: s.activeProviderId,
     model: s.model,
-    baseUrl: s.baseUrl,
+    mineruToken: s.mineruToken,
     sources: settingsStore.sourceViews(s),
   });
 });
@@ -266,9 +267,10 @@ app.get('/api/settings', (_req, res) => {
 app.put('/api/settings', (req, res) => {
   const next = settingsStore.writeSettings(req.body ?? {});
   res.json({
-    apiKey: next.apiKey,
+    providers: next.providers,
+    activeProviderId: next.activeProviderId,
     model: next.model,
-    baseUrl: next.baseUrl,
+    mineruToken: next.mineruToken,
     sources: settingsStore.sourceViews(next),
   });
 });

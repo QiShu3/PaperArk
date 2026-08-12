@@ -266,7 +266,8 @@ describe('PaperList', () => {
     await screen.findByText('Zeta Paper');
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
 
-    expect(await screen.findByText('API Base URL')).toBeInTheDocument();
-    expect(screen.getByText('API Key')).toBeInTheDocument();
+    expect(await screen.findByText('LLM 提供商')).toBeInTheDocument();
+    expect(screen.getByText('DeepSeek')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /MinerU/ })).toBeInTheDocument();
   });
 });

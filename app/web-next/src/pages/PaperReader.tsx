@@ -25,7 +25,7 @@ import TagEditor from '../components/TagEditor';
 import MdTranslationView from '../components/MdTranslationView';
 import ChatPanel from '../components/ChatPanel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { getSettings, loadSettings, saveSettings } from '../lib/settings';
+import { getSettings, loadSettings, saveSettings, activeProvider } from '../lib/settings';
 import type { Settings as SettingsType } from '../types';
 
 export default function PaperReader() {
@@ -206,7 +206,7 @@ export default function PaperReader() {
           paperId={paper.id}
           paperTitle={paper.title}
           paperContent={contentTab === 'chunk' ? chunkContent : paper.markdown}
-          apiKey={settings.apiKey}
+          apiKey={activeProvider(settings).apiKey}
           model={settings.model}
           onModelChange={(m) => handleSettingsChange({ ...settings, model: m })}
           quoteTexts={quoteTexts}

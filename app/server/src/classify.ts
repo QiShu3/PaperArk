@@ -1,7 +1,7 @@
 import { listMdIds } from './indexMd.js';
 import { readMeta, writeMeta } from './meta.js';
 import { readResearchConfig } from './researchConfig.js';
-import { readSettings } from './settingsStore.js';
+import { readSettings, getActiveProvider } from './settingsStore.js';
 import { getRawMarkdown } from './store.js';
 import { logger } from './logger.js';
 
@@ -110,20 +110,22 @@ export async function classifyPaperById(id: string): Promise<string[]> {
   const md = getRawMarkdown(id);
   const { title, abstract } = extractTitleAndAbstract(md);
   const settings = readSettings();
+  const active = getActiveProvider(settings);
   const cfg = readResearchConfig();
   const directionNames = cfg.directions.map((d) => d.name);
-  if (!settings.apiKey || directionNames.length === 0) return [];
-  return classifyTitleAbstract(title, abstract, directionNames, settings.apiKey, settings.baseUrl);
+  if (!active.apiKey || directionNames.length === 0) return [];
+  return classifyTitleAbstract(title, abstract, directionNames, active.apiKey, active.baseUrl);
 }
 
 export function classifyLibrary(): Promise<void> {
   if (classifying) throw new Error('已有分类任务正在进行');
   const settings = readSettings();
-  if (!settings.apiKey) throw new Error('请先在设置中配置 API Key');
+  const active = getActiveProvider(settings);
+  if (!active.apiKey) throw new Error('请先在设置中配置 API Key');
   const cfg = readResearchConfig();
   const directionNames = cfg.directions.map((d) => d.name);
   if (directionNames.length === 0) throw new Error('还没有研究方向，请先新增方向');
-  return runClassify(directionNames, settings.apiKey);
+  return runClassify(directionNames, active.apiKey);
 }
 
 async function runClassify(directionNames: string[], apiKey: string): Promise<void> {
@@ -152,7 +154,7 @@ async function runClassify(directionNames: string[], apiKey: string): Promise<vo
           abstract,
           directionNames,
           apiKey,
-          readSettings().baseUrl,
+          getActiveProvider(readSettings()).baseUrl,
         );
         const meta = readMeta();
         meta[id] = { ...(meta[id] ?? { tags: [] }), directions: result };
