@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -709,6 +709,15 @@ describe('multi-source research pipeline', () => {
 });
 
 describe('searchArxiv retry', () => {
+  beforeEach(() => {
+    vi.stubEnv('ARXIV_RATE_LIMIT_BASE_MS', '5');
+    vi.stubEnv('ARXIV_RATE_LIMIT_JITTER_MS', '0');
+    vi.stubEnv('ARXIV_TRANSIENT_BASE_MS', '5');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('retries transient 429 and succeeds', async () => {
     const { searchArxiv } = await import('../arxiv.js');
     const f = vi
@@ -723,6 +732,49 @@ describe('searchArxiv retry', () => {
       expect(f).toHaveBeenCalledTimes(2);
       expect(entries).toHaveLength(1);
       expect(entries[0].baseId).toBe('2607.28936');
+    } finally {
+      vi.stubGlobal('fetch', mockFetch);
+    }
+  });
+
+  it('respects Retry-After header over backoff', async () => {
+    const { searchArxiv } = await import('../arxiv.js');
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('rate limited', { status: 429, headers: { 'retry-after': '1' } }))
+      .mockResolvedValueOnce(new Response(atomXml([{ id: '2510.27285v4', title: 'X' }]), { status: 200 }));
+    vi.stubGlobal('fetch', f);
+    try {
+      const entries = await searchArxiv('abs:test', 5);
+      expect(entries).toHaveLength(1);
+    } finally {
+      vi.stubGlobal('fetch', mockFetch);
+    }
+  });
+
+  it('gives up after exhausting 429 retries', async () => {
+    const { searchArxiv } = await import('../arxiv.js');
+    const f = vi.fn().mockResolvedValue(new Response('rate limited', { status: 429 }));
+    vi.stubGlobal('fetch', f);
+    try {
+      await expect(searchArxiv('abs:test', 5)).rejects.toThrow(/429/);
+      expect(f).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.stubGlobal('fetch', mockFetch);
+    }
+  });
+
+  it('retries 503/504 with short backoff then gives up', async () => {
+    const { searchArxiv } = await import('../arxiv.js');
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('overloaded', { status: 503 }))
+      .mockResolvedValueOnce(new Response('overloaded', { status: 504 }))
+      .mockResolvedValueOnce(new Response('still down', { status: 503 }));
+    vi.stubGlobal('fetch', f);
+    try {
+      await expect(searchArxiv('abs:test', 5)).rejects.toThrow(/503/);
+      expect(f).toHaveBeenCalledTimes(3);
     } finally {
       vi.stubGlobal('fetch', mockFetch);
     }

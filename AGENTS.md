@@ -801,3 +801,37 @@ PaperReader → 内容标签: Markdown | PDF | PDF（中文）| 分块
 | 前端单元 + 集成 | 44 tests ✅（原 42 + 新增 2） |
 | TypeScript 编译 | ✅ |
 | Vite 构建 | ✅ |
+
+---
+
+## 补充修复 — arXiv 429 限流退避（2026-08-12）
+
+### 背景
+
+自动收录的 `scan-runs.json` 显示 08-11 / 08-12 连续两次 cron 运行全部失败（`arXiv API 请求失败 (HTTP 429)`）。根因：方向查询是 fielded 语法（`abs:"..." AND ...`），绕过 MCP 直连 arXiv API；`searchArxiv` 对 429 只重试 3 次、退避仅 3s/6s，而 arXiv 边缘层按 IP+查询串限流，窗口常持续几分钟，重试期内全部撞墙。
+
+### 修改
+
+`app/server/src/arxiv.ts`（`searchArxiv` 重试逻辑重写）：
+
+- **429 与 503/504 分治**：429 单独重试 4 次，503/504 只重试 3 次
+- **429 长退避**：默认 30s/60s/90s 指数退避 + 0~5s 随机抖动（避免多查询同步重试）；503/504 保持 3s/6s 短退避
+- **Retry-After 优先**：有该头时按它退避（封顶 300s），否则才用指数退避
+- **env 可调**（便于测试/调优）：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `ARXIV_RATE_LIMIT_BASE_MS` | `30000` | 429 退避基数 |
+| `ARXIV_RATE_LIMIT_JITTER_MS` | `5000` | 429 抖动上限（0 关闭） |
+| `ARXIV_TRANSIENT_BASE_MS` | `3000` | 503/504 退避基数 |
+
+`app/server/src/__tests__/research.test.ts`：`searchArxiv retry` 组新增 4 个用例（重试成功 / Retry-After 优先 / 429 耗尽 4 次放弃 / 503+504 混合重试后放弃），原有「重试 429 后成功」保留，测试通过 env 注入小基数避免真实退避等待。
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 113 tests ✅（原 110 + 新增 3） |
+| TypeScript 编译 | ✅ |
+
+> 注：`research.json` 尚未创建（走默认配置，仅 arXiv 一个方向）；多个 `tsx watch` 实例中仅 PID 19420 占用 3001，其余 `EADDRINUSE` 崩溃，属启动脚本重复拉起，不影响运行中的实例。
