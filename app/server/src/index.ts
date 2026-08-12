@@ -14,6 +14,8 @@ import * as research from './research.js';
 import * as researchConfig from './researchConfig.js';
 import * as classify from './classify.js';
 import * as paperClient from './paperClient.js';
+import * as sciverseClient from './sciverseClient.js';
+import sciverseRouter from './sciverseApi.js';
 import * as translateMd from './translateMd.js';
 import * as vectorStore from './vectorStore.js';
 import cron from 'node-cron';
@@ -34,6 +36,7 @@ for (const p of store.listPapers()) {
 
 // Ensure global chat paper entry exists for FK constraints
 insertPaper('__global__', '全局对话', 0);
+insertPaper('__sciverse__', 'Sciverse 工作区', 0);
 
 const app = express();
 app.use(cors());
@@ -46,6 +49,7 @@ app.use('/rawPDF', express.static(RAW_PDF_DIR));
 app.use('/MD/images', express.static(IMAGES_DIR));
 
 app.use('/api', chatRouter);
+app.use('/api/sciverse', sciverseRouter);
 
 app.get('/api/papers', (_req, res) => {
   res.json(store.listPapers());
@@ -260,6 +264,7 @@ app.get('/api/settings', (_req, res) => {
     activeProviderId: s.activeProviderId,
     model: s.model,
     mineruToken: s.mineruToken,
+    sciverseToken: s.sciverseToken,
     sources: settingsStore.sourceViews(s),
   });
 });
@@ -271,6 +276,7 @@ app.put('/api/settings', (req, res) => {
     activeProviderId: next.activeProviderId,
     model: next.model,
     mineruToken: next.mineruToken,
+    sciverseToken: next.sciverseToken,
     sources: settingsStore.sourceViews(next),
   });
 });
@@ -398,7 +404,10 @@ if (!process.env.VITEST) {
     console.log(`API server running at http://localhost:${PORT}`);
   });
   const shutdown = () => {
-    void paperClient.closePaperClient().finally(() => process.exit(0));
+    void Promise.all([
+      paperClient.closePaperClient(),
+      sciverseClient.closeSciverseClient(),
+    ]).finally(() => process.exit(0));
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);

@@ -971,3 +971,76 @@ extractPdfToMd(pdfPath, id):
 | 前端单元 + 集成 | 49 tests ✅（原 46 + SettingsDialog 净增 3） |
 | TypeScript 编译（server + web-next） | ✅ |
 | Vite 构建 | ✅ |
+
+---
+
+## Phase 15 — Sciverse 工作区（Agent 工具 + 独立收藏夹 + 转正式入库，2026-08-12）
+
+### 功能
+
+`/sciverse` 页面：面向全球文献的 AI 研究助手。DeepSeek 在对话中通过 tool calls 调用 Sciverse 全球文献库（语义检索 / 结构化检索 / 全文精读 / 引用关系 / 图表 / 收藏），回答带可溯源引用（doc_id/offset/页码）。
+
+- **Agent 工具集**（6 个，前端 handler 执行，经 `/api/sciverse/*` 代理）：`sciverse_semantic_search` / `sciverse_search_papers` / `sciverse_read_content` / `sciverse_relations` / `sciverse_get_resource` / `sciverse_add_favorite`
+- **MCP 通道**：服务器通过 `sciverse-mcp-server`（`npx -y sciverse-mcp-server`）连接 Sciverse，复用 paperClient 的 client 模式（懒启动/断线重建/解包），**单独连接**，token 经 `SCIVERSE_API_TOKEN` 环境变量注入（从 settings.sciverseToken 读）
+- **独立收藏夹**：`sciverse-collection.json` 只存元数据（doc_id/标题/年份/DOI），全文留在云端，不落盘；页面右侧可查看/移除
+- **转正式入库**：收藏夹点「转正式」→ 去重（DOI/标题/存储 id）→ `read_content` 循环拼全文 → `store.createPaperFromMarkdown()` 直取入库（`hasPdf=false`）→ 原文外链（DOI → arXiv 标题搜索兜底）→ 后台向量化 + AI 分类
+- **设置**：模型分类新增「Sciverse」子项（Token 输入 + 控制台链接）；`sciverseToken` 与 `mineruToken` 同模式存储
+- **图表展示**：`read_content` Markdown 内嵌 `dt=` 图路径由 `resolveImage` 重写为 `/api/sciverse/resource?file_name=`（给人看，DeepSeek 非多模态）
+
+### 架构
+
+```
+/sciverse (SciversePage.tsx)
+  ├─ SessionSidebar (paper_id='__sciverse__')
+  ├─ ChatPanel mode='sciverse'
+  │    ├─ SCIVERSE_TOOL_DEFINITIONS + createSciverseToolHandlers（前端定义/执行）
+  │    └─ buildSciverseSystemPrompt（声明 6 工具 + 引用规则）
+  └─ 收藏夹侧栏（列表/移除/转正式）
+        ▼ api.sciverse*
+  /api/sciverse/*（sciverseApi.ts，token 只在此）
+        ▼ sciverseClient.ts（MCP 单例，连 sciverse-mcp-server）
+        ▼ https://api.sciverse.space
+```
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/sciverseClient.ts      (MCP 客户端：semanticSearch/searchPapers/readContent/listPaperRelations/getResource/listCatalog)
+  app/server/src/sciverseApi.ts         (/api/sciverse/* 代理：status/semantic-search/search-papers/content/relations/catalog/resource/collection/promote)
+  app/server/src/sciverseCollection.ts  (收藏夹 JSON 存储)
+  app/server/src/__tests__/sciverseClient.test.ts (6 组用例)
+  app/server/src/__tests__/sciverse.api.test.ts  (10 用例)
+  app/web-next/src/pages/SciversePage.tsx
+  app/web-next/src/tools/sciverseTools.ts
+  app/web-next/src/__tests__/SciversePage.test.tsx (6 用例)
+  app/web-next/src/__tests__/markdown.test.ts     (dt= 重写)
+
+修改:
+  app/server/src/settingsStore.ts  (+ sciverseToken)
+  app/server/src/store.ts          (+ externalUrl 字段 + createPaperFromMarkdown 直取入库)
+  app/server/src/meta.ts           (+ externalUrl)
+  app/server/src/index.ts          (sciverse 路由 + insertPaper('__sciverse__') + settings API + 关闭钩子)
+  app/server/src/__tests__/settingsStore.test.ts / chat.api.test.ts (sciverseToken)
+  app/web-next/src/types.ts / api.ts / lib/settings.ts
+  app/web-next/src/components/ChatPanel.tsx (mode='sciverse')
+  app/web-next/src/components/SettingsDialog.tsx (Sciverse Token 子项)
+  app/web-next/src/lib/markdown.tsx (dt= → resource 代理)
+  app/web-next/src/App.tsx (+ /sciverse 路由)
+  app/web-next/src/pages/PaperList.tsx (+ 入口按钮 + 原文外链)
+  app/web-next/src/pages/PaperReader.tsx (+ 原文外链)
+  app/web-next/src/__tests__/tools.test.ts / SettingsDialog.test.tsx
+  .gitignore (+ sciverse-collection.json)
+  README.md / AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 153 tests ✅（原 126 + 新增 27） |
+| 前端单元 + 集成 | 64 tests ✅（原 49 + 新增 15） |
+| TypeScript 编译（server + web-next） | ✅ |
+| Vite 构建 | ✅ |
+
+> 注：Paper Schema（结构化实体/证据/引用图谱，BETA）未纳入本阶段；届时直接调 REST API 自建工具（参考官方 9 个意图工具设计），不引入 MCP。`SCIVERSE_MCP_DISABLED=1` 可关闭该能力。

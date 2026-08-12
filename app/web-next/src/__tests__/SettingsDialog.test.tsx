@@ -215,6 +215,40 @@ describe('SettingsDialog', () => {
     });
   });
 
+  it('shows Sciverse token input after switching to Sciverse', () => {
+    renderDialog();
+    expect(screen.queryByLabelText('Sciverse Token')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Sciverse/ }));
+    expect(screen.getByLabelText('Sciverse Token')).toBeInTheDocument();
+    expect(screen.getByText(/sciverse.space\/tokens/)).toBeInTheDocument();
+  });
+
+  it('includes sciverseToken in the saved payload', async () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <App>
+        <SettingsDialog
+          open
+          onOpenChange={vi.fn()}
+          settings={settings}
+          onSettingsChange={onSettingsChange}
+        />
+      </App>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Sciverse/ }));
+    fireEvent.change(screen.getByLabelText('Sciverse Token'), {
+      target: { value: 'sv-saved' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => {
+      const payload = onSettingsChange.mock.calls[0][0] as Settings;
+      expect(payload.sciverseToken).toBe('sv-saved');
+    });
+  });
+
   it('shows data sources only after switching to the 数据源 category', () => {
     renderDialog();
 

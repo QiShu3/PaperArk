@@ -471,6 +471,15 @@ describe('settings endpoints', () => {
     expect(get.body.mineruToken).toBe('mt-abc');
   });
 
+  it('persists sciverseToken through the settings API', async () => {
+    const res = await request(app).put('/api/settings').send({ sciverseToken: 'sv-abc' });
+    expect(res.status).toBe(200);
+    expect(res.body.sciverseToken).toBe('sv-abc');
+
+    const get = await request(app).get('/api/settings');
+    expect(get.body.sciverseToken).toBe('sv-abc');
+  });
+
   it('persists providers and activeProviderId through the settings API', async () => {
     const res = await request(app).put('/api/settings').send({
       providers: [

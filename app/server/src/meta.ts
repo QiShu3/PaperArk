@@ -11,6 +11,7 @@ export interface PaperMeta {
   source?: string;
   sourceId?: string;
   doi?: string;
+  externalUrl?: string;
   directions?: string[];
 }
 

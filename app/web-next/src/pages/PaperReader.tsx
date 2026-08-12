@@ -263,6 +263,11 @@ export default function PaperReader() {
               <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'monospace' }}>
                 {paper.id}
               </Typography.Text>
+              {paper.externalUrl && (
+                <a href={paper.externalUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                  <LinkOutlined /> 原文
+                </a>
+              )}
               <a href={`https://arxiv.org/abs/${paper.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
                 <LinkOutlined /> arXiv
               </a>

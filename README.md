@@ -12,6 +12,7 @@
 - **多源下载回退**：复用开源 [paper-search-mcp](https://github.com/openags/paper-search-mcp)（MCP 协议），下载按「源站 → CORE/EuropePMC/PMC → Unpaywall」顺序回退，官方源不可用时也能拿到 OA 全文
 - **Markdown 直译**：阅读页 Markdown 标签内一键「中文」切换，直接把 MinerU 解析的 Markdown 翻译成中文（约 1 分钟/篇），公式、图片引用、引用编号原样保留
 - **语义向量检索**：AI 对话新增语义检索（bge-m3 向量 + bge-reranker 重排，部署在 GPU 服务器），概念性提问与中英文跨语言检索效果显著优于关键词
+- **Sciverse 工作区**：`/sciverse` 页面接入 Sciverse 全球文献库，AI 通过 tool calls 语义检索 / 结构化检索 / 全文精读 / 引用关系，回答带可溯源引用；看中的论文可收进独立收藏夹（只存元数据）或一键转正式入库（全文直取，无 PDF）
 - **可配置 API 端点**：设置里可自行填写 API Key 与 Base URL（默认 DeepSeek，兼容任意 OpenAI 端点），对话 / AI 分类 / MD 翻译统一使用
 
 ## 架构
@@ -127,6 +128,22 @@ cd app/web && npm run dev
 
 论文对话与全局对话都新增语义检索工具（`semantic_search_chunks` / `semantic_search_library`）：问题向量化 → 向量召回 → 交叉编码器重排。向量模型部署在 GPU 服务器（`/home/qishu/project/vector-service/`），本机 SQLite 存向量，入库自动增量嵌入。
 
+### Sciverse 工作区
+
+`/sciverse` 页面：面向全球文献的 AI 研究助手。在设置「模型」分类下填写 Sciverse Token（`https://sciverse.space/tokens` 获取），服务器通过 `sciverse-mcp-server` 连接 Sciverse。
+
+- AI 工具：`sciverse_semantic_search`（语义检索）/ `sciverse_search_papers`（结构化检索）/ `sciverse_read_content`（全文精读）/ `sciverse_relations`（引用关系）/ `sciverse_get_resource`（图表）/ `sciverse_add_favorite`（收藏）
+- **收藏夹**：独立于本地知识库，只存元数据（doc_id/标题/年份/DOI），全文留在 Sciverse 云端；页面右侧可查看/移除
+- **转正式入库**：收藏夹里点「转正式」，全文直取进本地知识库（`hasPdf=false`），自动打标签/分块/向量化，原文链接按 DOI → arXiv 标题搜索兜底
+
+环境变量：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `SCIVERSE_MCP_DISABLED` | 未设置 | `1` = 关闭 Sciverse MCP |
+| `SCIVERSE_MCP_CMD` | `npx` | Sciverse MCP 启动命令 |
+| `SCIVERSE_MCP_ARGS` | `-y sciverse-mcp-server` | Sciverse MCP 启动参数 |
+
 ### 自定义 API 提供商
 
 设置界面「模型」分类支持**多 LLM Provider CRUD**：默认内置一个 DeepSeek，可新增/编辑/删除任意 OpenAI 兼容提供商（名称 + API Key + Base URL），并指定「当前使用」的提供商。全局模型（v4-flash / v4-pro）独立于提供商，统一映射为 `deepseek-v4-flash` / `deepseek-v4-pro`。
@@ -158,6 +175,7 @@ Papers/
 ├── papers.json          # 论文元数据（标题/方向/年份/来源等）
 ├── research.json        # 研究方向配置（缺省时用内置默认）
 ├── scan-runs.json       # 自动收录运行历史（已 gitignore）
+├── sciverse-collection.json # Sciverse 收藏夹（已 gitignore）
 ├── md-translations/     # Markdown 中文译文（已 gitignore）
 ├── md-translations.json # MD 翻译状态索引（已 gitignore）
 ├── vector-service/      # 向量服务代码（部署到 GPU 服务器）

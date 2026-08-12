@@ -22,6 +22,7 @@ export interface AppSettings {
   activeProviderId: string;
   model: string;
   mineruToken: string;
+  sciverseToken: string;
   sources: Record<string, SourceSetting>;
 }
 
@@ -46,6 +47,7 @@ const defaults: AppSettings = {
   activeProviderId: 'deepseek',
   model: 'v4-flash',
   mineruToken: '',
+  sciverseToken: '',
   sources: {},
 };
 
@@ -131,6 +133,7 @@ export function readSettings(): AppSettings {
       activeProviderId,
       model: typeof parsed.model === 'string' ? parsed.model : defaults.model,
       mineruToken: typeof parsed.mineruToken === 'string' ? parsed.mineruToken : defaults.mineruToken,
+      sciverseToken: typeof parsed.sciverseToken === 'string' ? parsed.sciverseToken : defaults.sciverseToken,
       sources: readSources(parsed.sources),
     };
   } catch {
@@ -139,6 +142,7 @@ export function readSettings(): AppSettings {
       activeProviderId: defaults.activeProviderId,
       model: defaults.model,
       mineruToken: defaults.mineruToken,
+      sciverseToken: defaults.sciverseToken,
       sources: defaultSources(),
     };
   }
@@ -206,6 +210,7 @@ export function writeSettings(settings: {
   activeProviderId?: string;
   model?: string;
   mineruToken?: string;
+  sciverseToken?: string;
   sources?: unknown;
 }): AppSettings {
   const current = readSettings();
@@ -219,6 +224,7 @@ export function writeSettings(settings: {
         : merged.activeProviderId,
     model: settings.model || current.model || defaults.model,
     mineruToken: settings.mineruToken ?? current.mineruToken,
+    sciverseToken: settings.sciverseToken ?? current.sciverseToken,
     sources: mergeSourcesInput(current.sources, settings.sources),
   };
   fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });

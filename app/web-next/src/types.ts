@@ -10,6 +10,7 @@ export interface Paper {
   source?: string;
   sourceId?: string;
   doi?: string;
+  externalUrl?: string;
   directions?: string[];
   hasMd: boolean;
   hasPdf: boolean;
@@ -79,6 +80,7 @@ export interface Settings {
   activeProviderId: string;
   model: string;
   mineruToken?: string;
+  sciverseToken?: string;
   sources?: SourceSetting[];
 }
 
@@ -231,4 +233,66 @@ export interface EmbedStatus {
   current: number;
   total: number;
   embedded: number;
+}
+
+export interface SciverseSemanticHit {
+  doc_id?: string;
+  chunk_id?: string;
+  text?: string;
+  score?: number;
+  title?: string;
+  abstract?: string;
+  source?: { title?: string; year?: number; venue?: string; authors?: string[] };
+  offset?: number;
+  page_no?: number;
+  citation_count?: number;
+}
+
+export interface SciversePaperHit {
+  doc_id?: string;
+  unique_id?: string;
+  title?: string;
+  authors?: string[];
+  year?: number;
+  venue?: string;
+  abstract?: string;
+  doi?: string;
+  is_content_accessible?: boolean;
+  citation_count?: number;
+}
+
+export interface SciverseContentSlice {
+  text: string;
+  next_offset: number;
+  more: boolean;
+}
+
+export interface SciverseRelationItem {
+  id?: string;
+  id_type?: string;
+  title?: string;
+}
+
+export interface SciverseFavorite {
+  doc_id: string;
+  unique_id?: string;
+  title: string;
+  authors: string[];
+  year?: string;
+  venue?: string;
+  abstract?: string;
+  doi?: string;
+  externalUrl?: string;
+  addedAt: string;
+}
+
+export interface SciverseStatus {
+  enabled: boolean;
+  tokenConfigured: boolean;
+}
+
+export interface PromoteResult {
+  status: 'added' | 'duplicate';
+  paper: Paper;
+  error?: string;
 }

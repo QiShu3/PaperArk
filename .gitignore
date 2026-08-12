@@ -15,6 +15,7 @@ tmp/
 mineru-failed/
 filelist.txt
 scan-runs.json
+sciverse-collection.json
 translations/
 translations.json
 md-translations/

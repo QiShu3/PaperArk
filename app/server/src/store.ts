@@ -20,6 +20,7 @@ export interface Paper {
   source?: string;
   sourceId?: string;
   doi?: string;
+  externalUrl?: string;
   directions?: string[];
   hasMd: boolean;
   hasPdf: boolean;
@@ -65,6 +66,7 @@ export function listPapers(): Paper[] {
       source: m?.source,
       sourceId: m?.sourceId,
       doi: m?.doi,
+      externalUrl: m?.externalUrl,
       directions: m?.directions ?? [],
       hasMd,
       hasPdf: fs.existsSync(path.join(RAW_PDF_DIR, `${id}.pdf`)),
@@ -127,6 +129,7 @@ export interface UpdatePatch {
   source?: string;
   sourceId?: string;
   doi?: string;
+  externalUrl?: string;
   directions?: string[];
 }
 
@@ -151,6 +154,7 @@ export function updatePaper(id: string, patch: UpdatePatch): PaperDetail | null 
     source: patch.source !== undefined ? patch.source : cur.source,
     sourceId: patch.sourceId !== undefined ? patch.sourceId : cur.sourceId,
     doi: patch.doi !== undefined ? patch.doi : cur.doi,
+    externalUrl: patch.externalUrl !== undefined ? patch.externalUrl : cur.externalUrl,
     directions: patch.directions !== undefined ? patch.directions : (cur.directions ?? []),
   };
   writeMeta(meta);
@@ -186,49 +190,99 @@ export interface CreateInput {
   source?: string;
   sourceId?: string;
   doi?: string;
+  externalUrl?: string;
   directions?: string[];
+}
+
+/** 写入 MD、分块入库、写 meta、重建索引的公共收尾步骤。 */
+function finishPaper(id: string, markdown: string, input: {
+  tags: string[];
+  venue?: string;
+  year?: string;
+  area?: string;
+  source?: string;
+  sourceId?: string;
+  doi?: string;
+  externalUrl?: string;
+  directions?: string[];
+}): PaperDetail {
+  const mdPath = path.join(MD_DIR, `${id}.md`);
+  fs.mkdirSync(MD_DIR, { recursive: true });
+  fs.writeFileSync(mdPath, markdown, 'utf-8');
+
+  const { title, chunks } = parseMd(markdown);
+  // chunks 表有指向 papers 表的外键，必须先建 papers 行再写 chunks
+  insertPaper(id, title, markdown.length);
+  saveChunks(id, chunks);
+
+  const meta = readMeta();
+  meta[id] = {
+    tags: input.tags ?? [],
+    addedAt: new Date().toISOString(),
+    notes: meta[id]?.notes,
+    venue: input.venue,
+    year: input.year,
+    area: input.area,
+    source: input.source,
+    sourceId: input.sourceId,
+    doi: input.doi,
+    externalUrl: input.externalUrl,
+    directions: input.directions ?? [],
+  };
+  writeMeta(meta);
+  rebuildIndex();
+
+  const paper = getPaper(id);
+  if (!paper) throw new Error('解析完成但未能读取生成的论文');
+  return paper;
+}
+
+/** 失败清理半成品（rawPDF/MD/SQLite 行）。 */
+function cleanupPartial(id: string, destPdf?: string): void {
+  if (destPdf) fs.rmSync(destPdf, { force: true });
+  fs.rmSync(path.join(MD_DIR, `${id}.md`), { force: true });
+  clearPaper(id);
 }
 
 export async function createPaper(input: CreateInput): Promise<PaperDetail> {
   const destPdf = path.join(RAW_PDF_DIR, `${input.id}.pdf`);
   fs.mkdirSync(RAW_PDF_DIR, { recursive: true });
-  fs.mkdirSync(MD_DIR, { recursive: true });
   fs.copyFileSync(input.pdfPath, destPdf);
   try {
     await extractPdfToMd(destPdf, input.id);
 
     const mdPath = path.join(MD_DIR, `${input.id}.md`);
     const mdContent = fs.readFileSync(mdPath, 'utf-8');
-    const { title, chunks } = parseMd(mdContent);
-    // chunks 表有指向 papers 表的外键，必须先建 papers 行再写 chunks
-    insertPaper(input.id, title, mdContent.length);
-    saveChunks(input.id, chunks);
-
-    const meta = readMeta();
-    meta[input.id] = {
-      tags: input.tags ?? [],
-      addedAt: new Date().toISOString(),
-      notes: meta[input.id]?.notes,
-      venue: input.venue,
-      year: input.year,
-      area: input.area,
-      source: input.source,
-      sourceId: input.sourceId,
-      doi: input.doi,
-      directions: input.directions ?? [],
-    };
-    writeMeta(meta);
-    rebuildIndex();
+    return finishPaper(input.id, mdContent, input);
   } catch (err) {
-    // 事务化：任一环节失败都清理半成品（rawPDF/MD/SQLite 行），
-    // 避免孤儿 MD 让论文以残缺状态出现在库中（listIds 以文件为准）
-    fs.rmSync(destPdf, { force: true });
-    fs.rmSync(path.join(MD_DIR, `${input.id}.md`), { force: true });
-    clearPaper(input.id);
+    cleanupPartial(input.id, destPdf);
     throw err;
   }
+}
 
-  const paper = getPaper(input.id);
-  if (!paper) throw new Error('解析完成但未能读取生成的论文');
-  return paper;
+export interface CreateMarkdownInput {
+  id: string;
+  markdown: string;
+  tags: string[];
+  venue?: string;
+  year?: string;
+  area?: string;
+  source?: string;
+  sourceId?: string;
+  doi?: string;
+  externalUrl?: string;
+  directions?: string[];
+}
+
+/** 直接用全文 Markdown 入库（无 PDF），Sciverse content 直取场景专用。 */
+export function createPaperFromMarkdown(input: CreateMarkdownInput): PaperDetail {
+  if (!input.markdown || !input.markdown.trim()) {
+    throw new Error('Markdown 内容为空');
+  }
+  try {
+    return finishPaper(input.id, input.markdown, input);
+  } catch (err) {
+    cleanupPartial(input.id);
+    throw err;
+  }
 }

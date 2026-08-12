@@ -158,4 +158,16 @@ describe('settingsStore providers', () => {
     expect(s.activeProviderId).toBe('deepseek');
     expect(s.providers[0].apiKey).toBe('k1-new');
   });
+
+  it('persists and reads sciverseToken', () => {
+    settingsStore.writeSettings({ sciverseToken: 'sv-test-token' });
+    const s = settingsStore.readSettings();
+    expect(s.sciverseToken).toBe('sv-test-token');
+  });
+
+  it('defaults sciverseToken to empty string', () => {
+    writeFileSync(join(tempDir, 'settings.json'), JSON.stringify({ model: 'v4-flash' }));
+    const s = settingsStore.readSettings();
+    expect(s.sciverseToken).toBe('');
+  });
 });

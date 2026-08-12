@@ -14,6 +14,13 @@ import type {
   MdTranslationRecord,
   SemanticHit,
   EmbedStatus,
+  SciverseSemanticHit,
+  SciversePaperHit,
+  SciverseContentSlice,
+  SciverseRelationItem,
+  SciverseFavorite,
+  SciverseStatus,
+  PromoteResult,
 } from './types';
 
 const RETRY_DELAYS = [1000, 3000, 6000];
@@ -256,6 +263,7 @@ export const api = {
       activeProviderId: string;
       model: string;
       mineruToken?: string;
+      sciverseToken?: string;
       sources: import('./types').SourceSetting[];
     }>('/api/settings'),
   saveSettings: (s: {
@@ -263,6 +271,7 @@ export const api = {
     activeProviderId?: string;
     model?: string;
     mineruToken?: string;
+    sciverseToken?: string;
     sources?: { source: string; enabled: boolean; key?: string }[];
   }) =>
     http<{
@@ -270,6 +279,7 @@ export const api = {
       activeProviderId: string;
       model: string;
       mineruToken?: string;
+      sciverseToken?: string;
       sources: import('./types').SourceSetting[];
     }>('/api/settings', {
       method: 'PUT',
@@ -346,4 +356,57 @@ export const api = {
   embedAll: () =>
     http<{ started: boolean }>('/api/vector/embed-all', { method: 'POST' }),
   getEmbedStatus: () => http<EmbedStatus>('/api/vector/status'),
+  sciverseStatus: () => http<SciverseStatus>('/api/sciverse/status'),
+  sciverseSemanticSearch: (query: string, topK = 10, mode = 'balanced') =>
+    http<{ hits: SciverseSemanticHit[] }>('/api/sciverse/semantic-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, top_k: topK, mode }),
+    }),
+  sciverseSearchPapers: (opts: { query?: string; authors?: string[]; year_from?: number; page_size?: number }) =>
+    http<{ hits: SciversePaperHit[] }>('/api/sciverse/search-papers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(opts),
+    }),
+  sciverseContent: (docId: string, offset = 0, limit = 4096) =>
+    http<SciverseContentSlice>('/api/sciverse/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_id: docId, offset, limit }),
+    }),
+  sciverseRelations: (uniqueId: string, relation: string, page = 1, pageSize = 25) =>
+    http<{ items: SciverseRelationItem[]; totalCount: number; page: number; totalPages: number }>(
+      '/api/sciverse/relations',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unique_id: uniqueId, relation, page, page_size: pageSize }),
+      },
+    ),
+  sciverseResourceUrl: (fileName: string) => `/api/sciverse/resource?file_name=${encodeURIComponent(fileName)}`,
+  sciverseListFavorites: () => http<{ items: SciverseFavorite[] }>('/api/sciverse/collection'),
+  sciverseAddFavorite: (f: {
+    doc_id: string;
+    unique_id?: string;
+    title: string;
+    authors?: string[];
+    year?: string;
+    venue?: string;
+    abstract?: string;
+    doi?: string;
+  }) =>
+    http<SciverseFavorite>('/api/sciverse/collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(f),
+    }),
+  sciverseRemoveFavorite: (docId: string) =>
+    http<{ ok: boolean }>(`/api/sciverse/collection/${encodeURIComponent(docId)}`, { method: 'DELETE' }),
+  sciversePromote: (docId: string, opts?: { title?: string; doi?: string; year?: string }) =>
+    http<PromoteResult>('/api/sciverse/promote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_id: docId, ...(opts ?? {}) }),
+    }),
 };

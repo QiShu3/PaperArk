@@ -12,6 +12,7 @@ import {
   SearchOutlined,
   SettingOutlined,
   ThunderboltOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { api } from '../api';
 import type { Paper, Settings as SettingsType } from '../types';
@@ -162,6 +163,11 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
           )}
         </div>
         <Flex vertical align="flex-end" gap={4}>
+          {paper.externalUrl && (
+            <a href={paper.externalUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
+              <LinkOutlined /> 原文
+            </a>
+          )}
           <a href={`https://arxiv.org/abs/${paper.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
             <LinkOutlined /> arXiv
           </a>
@@ -288,6 +294,9 @@ export default function PaperList() {
           <Space>
             <Button icon={<MessageOutlined />} onClick={() => navigate('/chat')}>
               全局对话
+            </Button>
+            <Button icon={<GlobalOutlined />} onClick={() => navigate('/sciverse')}>
+              Sciverse 工作区
             </Button>
             <Button icon={<ReloadOutlined />} onClick={() => navigate('/research')}>
               研究方向

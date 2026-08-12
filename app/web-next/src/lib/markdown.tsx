@@ -7,6 +7,10 @@ import '@ant-design/x-markdown/themes/dark.css';
 export function resolveImage(src?: string): string {
   if (!src) return '';
   if (/^https?:\/\//.test(src) || src.startsWith('/') || src.startsWith('data:')) return src;
+  // Sciverse content 内嵌的图表引用（如 dt=xxx/p_yyy/f3.png）→ 代理资源接口
+  if (/^dt=/.test(src)) {
+    return `/api/sciverse/resource?file_name=${encodeURIComponent(src)}`;
+  }
   const clean = src.replace(/^(\.\/)?images?\//, '').split('/').pop() ?? src;
   return `/MD/images/${clean}`;
 }

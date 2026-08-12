@@ -29,7 +29,7 @@ interface SourceRow extends SourceSetting {
 }
 
 type CategoryKey = 'model' | 'sources';
-type ProviderKey = 'llm' | 'mineru';
+type ProviderKey = 'llm' | 'mineru' | 'sciverse';
 
 interface ProviderForm {
   id?: string;
@@ -44,6 +44,7 @@ const HIDDEN_SOURCES = new Set(['semantic', 'zenodo']);
 export default function SettingsDialog({ open, onOpenChange, settings, onSettingsChange }: Props) {
   const [model, setModel] = useState(settings.model);
   const [mineruToken, setMineruToken] = useState(settings.mineruToken || '');
+  const [sciverseToken, setSciverseToken] = useState(settings.sciverseToken || '');
   const [providers, setProviders] = useState<LLMProvider[]>(settings.providers ?? defaultProviders());
   const [activeProviderId, setActiveProviderId] = useState(
     settings.activeProviderId || settings.providers?.[0]?.id || 'deepseek',
@@ -60,6 +61,7 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
     if (open) {
       setModel(settings.model);
       setMineruToken(settings.mineruToken || '');
+      setSciverseToken(settings.sciverseToken || '');
       setProviders(settings.providers ?? defaultProviders());
       setActiveProviderId(settings.activeProviderId || settings.providers?.[0]?.id || 'deepseek');
       setTestResult(null);
@@ -119,6 +121,7 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
       activeProviderId,
       model,
       mineruToken: mineruToken.trim(),
+      sciverseToken: sciverseToken.trim(),
       sources: sources.map((s) => ({
         source: s.source,
         label: s.label,
@@ -324,6 +327,17 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
                 <span style={{ flex: 1 }}>MinerU</span>
                 <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)' }}>
                   {mineruToken ? '✓' : ''}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setProvider('sciverse')}
+                style={navItemStyle(provider === 'sciverse')}
+              >
+                <LinkOutlined />
+                <span style={{ flex: 1 }}>Sciverse</span>
+                <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)' }}>
+                  {sciverseToken ? '✓' : ''}
                 </span>
               </button>
             </div>
@@ -544,6 +558,28 @@ export default function SettingsDialog({ open, onOpenChange, settings, onSetting
                       用于 PDF 解析（论文入库 / 自动收录）。获取 Token：
                       <a href="https://mineru.net/apiManage/token" target="_blank" rel="noreferrer">
                         https://mineru.net/apiManage/token
+                      </a>
+                    </Typography.Paragraph>
+                  </div>
+                </div>
+              )}
+              {provider === 'sciverse' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+                      Sciverse Token
+                    </Typography.Text>
+                    <Input.Password
+                      value={sciverseToken}
+                      onChange={(e) => setSciverseToken(e.target.value)}
+                      placeholder="粘贴 Sciverse API Token"
+                      prefix={<LinkOutlined />}
+                      aria-label="Sciverse Token"
+                    />
+                    <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                      用于 Sciverse 工作区（全球文献检索 / 全文精读 / 引用关系 / 收藏入库）。获取 Token：
+                      <a href="https://sciverse.space/tokens" target="_blank" rel="noreferrer">
+                        https://sciverse.space/tokens
                       </a>
                     </Typography.Paragraph>
                   </div>

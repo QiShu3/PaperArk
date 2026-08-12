@@ -30,10 +30,11 @@ export function getSettings(): Settings {
       activeProviderId,
       model: raw.model || 'v4-flash',
       mineruToken: raw.mineruToken || '',
+      sciverseToken: raw.sciverseToken || '',
       sources: raw.sources ?? [],
     };
   } catch {
-    return { providers: defaultProviders(), activeProviderId: 'deepseek', model: 'v4-flash', mineruToken: '', sources: [] };
+    return { providers: defaultProviders(), activeProviderId: 'deepseek', model: 'v4-flash', mineruToken: '', sciverseToken: '', sources: [] };
   }
 }
 

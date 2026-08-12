@@ -28,13 +28,41 @@ import { useDirection, GLOBAL_DIRECTION } from '@/context/DirectionContext';
 import type { ChatMessage, ToolCall, ToolCallDelta } from '@/types';
 import { TOOL_DEFINITIONS, createToolHandlers } from '@/tools';
 import { GLOBAL_TOOL_DEFINITIONS, createGlobalToolHandlers } from '@/tools/globalTools';
+import { SCIVERSE_TOOL_DEFINITIONS, createSciverseToolHandlers } from '@/tools/sciverseTools';
 import { Markdown } from '@/lib/markdown';
 
 const GLOBAL_PAPER_ID = '__global__';
+const SCIVERSE_PAPER_ID = '__sciverse__';
 
 const QUICK_PROMPTS = ['总结本文要点', '核心贡献是什么', '关键方法的优劣', '本文的局限性'];
 
 const GLOBAL_QUICK_PROMPTS = ['列出所有论文', '搜索 transformer 相关论文', '对比两篇论文的方法', '总结某个领域的研究现状'];
+
+const SCIVERSE_QUICK_PROMPTS = [
+  '最近扩散模型对抗攻击有什么新进展',
+  '找一篇标题含 diffusion 的 2024 年论文',
+  '「Attention Is All You Need」引用了哪些工作',
+  '总结一下 transformer 注意力机制的原理',
+];
+
+function buildSciverseSystemPrompt(): string {
+  return `你是一名专业的文献研究助手，接入了 Sciverse 全球文献库。
+
+你可以调用以下工具检索全球论文（不是本地论文库）：
+- sciverse_semantic_search(query) — 自然语言语义检索，返回最相关的段落、论文与引用定位（doc_id/offset/页码），适合概念性、开放式问题
+- sciverse_search_papers(query?, authors?, year_from?) — 结构化检索，精确定位某篇论文（标题/作者/年份/DOI）
+- sciverse_read_content(doc_id, offset?, limit?) — 按 doc_id 读取某篇论文的全文切片；内容未完时返回 next_offset，可继续读取
+- sciverse_relations(unique_id, relation) — 查看引用关系：CITATIONS（谁引用它）/ REFERENCES（它引用了谁）/ RELATED_WORKS（相关工作）
+- sciverse_get_resource(file_name) — 获取论文图表附件的可展示地址
+- sciverse_add_favorite(doc_id, title, doi?, year?) — 把论文收藏到 Sciverse 收藏夹（只存元数据，不下载全文）
+
+回答规则：
+1. 需要文献信息时主动调用工具，不要编造论文与内容
+2. 引用论文内容时注明：论文标题 + doc_id + 页码/段落定位（可验证）
+3. 展示图表时直接使用 Markdown 语法 ![](路径)
+4. 中文回答
+5. 检索无结果时如实说明，可提示用户换关键词或换检索方式`;
+}
 
 function buildGlobalSystemPrompt(quoteTexts?: string[], direction?: string): string {
   const quoteBlock =
@@ -244,7 +272,7 @@ interface Props {
   onQuotesClear?: () => void;
   contentMode?: 'full' | 'chunk';
   chunkHeading?: string;
-  mode?: 'paper' | 'global';
+  mode?: 'paper' | 'global' | 'sciverse';
   inputValue?: string;
   onInputChange?: (value: string) => void;
 }
@@ -280,7 +308,8 @@ export default function ChatPanel({
 }: Props) {
   const { message, modal } = App.useApp();
   const isGlobal = mode === 'global';
-  const paperId = isGlobal ? GLOBAL_PAPER_ID : (rawPaperId ?? '');
+  const isSciverse = mode === 'sciverse';
+  const paperId = isGlobal ? GLOBAL_PAPER_ID : isSciverse ? SCIVERSE_PAPER_ID : (rawPaperId ?? '');
   const {
     getMessages,
     isLoaded,
@@ -325,7 +354,7 @@ export default function ChatPanel({
   const [chunkDirectory, setChunkDirectory] = useState('');
 
   useEffect(() => {
-    if (isGlobal) {
+    if (isGlobal || isSciverse) {
       setChunkDirectory('');
       return;
     }
@@ -365,16 +394,18 @@ export default function ChatPanel({
       const controller = new AbortController();
       abortRef.current = controller;
 
-      let systemContent = isGlobal
-        ? buildGlobalSystemPrompt(quoteRef.current, direction)
-        : buildSystemPrompt(
-            paperContent,
-            contentMode === 'chunk',
-            chunkHeading,
-            quoteRef.current,
-            paperTitle,
-            chunkDirectory,
-          );
+      let systemContent = isSciverse
+        ? buildSciverseSystemPrompt()
+        : isGlobal
+          ? buildGlobalSystemPrompt(quoteRef.current, direction)
+          : buildSystemPrompt(
+              paperContent,
+              contentMode === 'chunk',
+              chunkHeading,
+              quoteRef.current,
+              paperTitle,
+              chunkDirectory,
+            );
 
       let sendHistory = [...fullHistory];
       let roundCompacted = false;
@@ -412,17 +443,23 @@ export default function ChatPanel({
       const systemMsg: ChatMessage = { role: 'system', content: systemContent };
       const workingMessages: ChatMessage[] = [systemMsg, ...sendHistory];
 
-      const tools = isGlobal ? GLOBAL_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
-      const handlers = isGlobal
-        ? createGlobalToolHandlers(() => direction)
-        : createToolHandlers(
-            paperId,
-            () => ({
-              heading: chunkHeading ?? '',
-              content: paperContent,
-            }),
-            () => direction,
-          );
+      const tools = isSciverse
+        ? SCIVERSE_TOOL_DEFINITIONS
+        : isGlobal
+          ? GLOBAL_TOOL_DEFINITIONS
+          : TOOL_DEFINITIONS;
+      const handlers = isSciverse
+        ? createSciverseToolHandlers()
+        : isGlobal
+          ? createGlobalToolHandlers(() => direction)
+          : createToolHandlers(
+              paperId,
+              () => ({
+                heading: chunkHeading ?? '',
+                content: paperContent,
+              }),
+              () => direction,
+            );
 
       const roundId = crypto.randomUUID();
       const roundStart = Date.now();
@@ -577,6 +614,7 @@ export default function ChatPanel({
     [
       paperId,
       isGlobal,
+      isSciverse,
       paperContent,
       paperTitle,
       chunkDirectory,
@@ -753,6 +791,7 @@ export default function ChatPanel({
   );
 
   const isEmpty = messages.length === 0;
+  const quickPrompts = isSciverse ? SCIVERSE_QUICK_PROMPTS : isGlobal ? GLOBAL_QUICK_PROMPTS : QUICK_PROMPTS;
 
   return (
     <Flex vertical style={{ height: '100%', minHeight: 0 }} className="chat-panel">
@@ -796,7 +835,7 @@ export default function ChatPanel({
       {/* Suggestion quick prompts */}
       <Flex style={{ padding: '8px 16px', borderBottom: '1px solid rgba(5,5,5,0.06)' }} wrap gap={8}>
         <Prompts
-          items={(isGlobal ? GLOBAL_QUICK_PROMPTS : QUICK_PROMPTS).map((p, idx) => ({
+          items={quickPrompts.map((p, idx) => ({
             key: String(idx),
             label: p,
             disabled: isStreaming || !apiKey,
@@ -816,15 +855,17 @@ export default function ChatPanel({
           <Flex vertical align="center" justify="center" gap={16} style={{ height: '100%', padding: 24 }}>
             <Welcome
               variant="borderless"
-              title={isGlobal ? '全局 AI 助手' : '论文阅读助手'}
+              title={isSciverse ? 'Sciverse 文献助手' : isGlobal ? '全局 AI 助手' : '论文阅读助手'}
               description={
-                isGlobal
-                  ? '跨论文提问，让 AI 帮你探索论文库'
-                  : '针对当前论文提问，AI 会检索分段与图片'
+                isSciverse
+                  ? '面向全球文献提问，AI 检索并附可验证引用'
+                  : isGlobal
+                    ? '跨论文提问，让 AI 帮你探索论文库'
+                    : '针对当前论文提问，AI 会检索分段与图片'
               }
             />
             <Prompts
-              items={(isGlobal ? GLOBAL_QUICK_PROMPTS : QUICK_PROMPTS).map((p, idx) => ({
+              items={quickPrompts.map((p, idx) => ({
                 key: String(idx),
                 label: p,
               }))}
@@ -941,9 +982,11 @@ export default function ChatPanel({
               onKeyDown={onKeyDown}
               placeholder={
                 apiKey
-                  ? isGlobal
-                    ? '问任何关于论文库的问题…'
-                    : '问任何关于这篇论文的问题…'
+                  ? isSciverse
+                    ? '问任何关于全球文献的问题…'
+                    : isGlobal
+                      ? '问任何关于论文库的问题…'
+                      : '问任何关于这篇论文的问题…'
                   : '请先在设置中配置 API Key'
               }
               disabled={!apiKey}
