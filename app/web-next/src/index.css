@@ -72,6 +72,15 @@ body {
   box-shadow: 0 0 4px rgba(22, 119, 255, 0.3);
 }
 
+/* 对话消息列表：隐藏滚动条（保留滚轮/触摸滚动），右侧由时间线导航条独占 */
+.chat-bubble-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.chat-bubble-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* 消息列表浮动面板 */
 .chat-timeline-panel .chat-timeline-panel-scroll::-webkit-scrollbar {
   width: 6px;

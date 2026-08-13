@@ -942,6 +942,8 @@ export default function ChatPanel({
             items={bubbleItems}
             role={roles}
             autoScroll
+            className="chat-bubble-list"
+            classNames={{ scroll: 'chat-bubble-scroll' }}
             style={{ height: '100%', padding: 16, overflowY: 'auto' }}
           />
         )}
