@@ -94,7 +94,7 @@ router.post('/chat/title', async (req: Request, res: Response) => {
             { role: 'system', content: system },
             { role: 'user', content: text },
           ],
-          max_tokens: 20,
+          max_tokens: 300,
           stream: false,
         }),
       },
@@ -102,9 +102,11 @@ router.post('/chat/title', async (req: Request, res: Response) => {
       30_000,
     );
     const data = (await resp.json().catch(() => null)) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: { message?: { content?: string; reasoning_content?: string } }[];
     } | null;
-    const title = data?.choices?.[0]?.message?.content?.trim().replace(/^["'“”「」『』]+|["'“”「」『』]+$/g, '') || '';
+    const msg = data?.choices?.[0]?.message;
+    const raw = msg?.content?.trim() || msg?.reasoning_content?.trim() || '';
+    const title = raw.replace(/^["'“”「」『』]+|["'“”「」『』]+$/g, '').slice(0, 30);
     if (!title) {
       res.json({ ok: false, error: 'AI 未能生成标题' });
       return;
