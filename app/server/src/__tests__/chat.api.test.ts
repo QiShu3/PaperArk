@@ -302,7 +302,8 @@ describe('POST /api/chat/title', () => {
     expect(res.body).toEqual({ ok: true, title: '扩散模型对抗攻击' });
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.stream).toBe(false);
-    expect(body.max_tokens).toBe(300);
+    expect(body.max_tokens).toBe(50);
+    expect(body.thinking).toEqual({ type: 'disabled' });
     expect(body.messages[1].content).toBe('最近扩散模型对抗攻击有什么新进展');
   });
 
@@ -335,17 +336,17 @@ describe('POST /api/chat/title', () => {
     expect(res.body.error).toContain('未能生成');
   });
 
-  it('falls back to reasoning_content when content is empty', async () => {
+  it('does not use reasoning_content as the title', async () => {
     mockFetch.mockClear();
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        choices: [{ message: { content: '', reasoning_content: '根据用户消息生成的标题：扩散模型对抗攻击' } }],
+        choices: [{ message: { content: '', reasoning_content: '我们需要理解用户请求……' } }],
       }),
     });
     const res = await request(app).post('/api/chat/title').send({ text: 'diffusion attack', apiKey: 'test-key' });
-    expect(res.body.ok).toBe(true);
-    expect(res.body.title).toContain('扩散模型对抗攻击');
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toContain('未能生成');
   });
 });
 

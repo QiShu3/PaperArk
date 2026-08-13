@@ -94,7 +94,10 @@ router.post('/chat/title', async (req: Request, res: Response) => {
             { role: 'system', content: system },
             { role: 'user', content: text },
           ],
-          max_tokens: 300,
+          // 标题生成是简单任务，关闭思考让 content 直接返回标题（推理模型默认会把
+          // token 耗在 reasoning 上，导致 content 为空、拿到的是思考过程而非答案）。
+          thinking: { type: 'disabled' },
+          max_tokens: 50,
           stream: false,
         }),
       },
@@ -102,11 +105,10 @@ router.post('/chat/title', async (req: Request, res: Response) => {
       30_000,
     );
     const data = (await resp.json().catch(() => null)) as {
-      choices?: { message?: { content?: string; reasoning_content?: string } }[];
+      choices?: { message?: { content?: string } }[];
     } | null;
     const msg = data?.choices?.[0]?.message;
-    const raw = msg?.content?.trim() || msg?.reasoning_content?.trim() || '';
-    const title = raw.replace(/^["'“”「」『』]+|["'“”「」『』]+$/g, '').slice(0, 30);
+    const title = (msg?.content ?? '').trim().replace(/^["'“”「」『』]+|["'“”「」『』]+$/g, '').slice(0, 30);
     if (!title) {
       res.json({ ok: false, error: 'AI 未能生成标题' });
       return;
