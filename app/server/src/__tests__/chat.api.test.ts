@@ -286,6 +286,56 @@ describe('POST /api/chat/test', () => {
   });
 });
 
+describe('POST /api/chat/title', () => {
+  it('generates a title from the first message', async () => {
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '扩散模型对抗攻击' } }] }),
+    });
+
+    const res = await request(app)
+      .post('/api/chat/title')
+      .send({ text: '最近扩散模型对抗攻击有什么新进展', apiKey: 'test-key', model: 'v4-flash' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, title: '扩散模型对抗攻击' });
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.stream).toBe(false);
+    expect(body.max_tokens).toBe(20);
+    expect(body.messages[1].content).toBe('最近扩散模型对抗攻击有什么新进展');
+  });
+
+  it('strips surrounding quotes from the generated title', async () => {
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '「对比两篇方法」' } }] }),
+    });
+    const res = await request(app)
+      .post('/api/chat/title')
+      .send({ text: '对比两篇论文的方法', apiKey: 'test-key' });
+    expect(res.body.title).toBe('对比两篇方法');
+  });
+
+  it('requires message text', async () => {
+    const res = await request(app).post('/api/chat/title').send({ text: '   ' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('缺少');
+  });
+
+  it('reports when the model returns empty content', async () => {
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '' } }] }),
+    });
+    const res = await request(app).post('/api/chat/title').send({ text: 'abc', apiKey: 'test-key' });
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toContain('未能生成');
+  });
+});
+
 describe('GET /api/papers/:id/images', () => {
   it('returns image paths from markdown', async () => {
     const res = await request(app).get('/api/papers/test-paper/images');

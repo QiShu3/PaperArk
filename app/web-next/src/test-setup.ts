@@ -26,6 +26,21 @@ if (typeof window !== 'undefined') {
     (window as unknown as Record<string, unknown>).ResizeObserver = ResizeObserverMock;
   }
 
+  if (typeof window.IntersectionObserver !== 'function') {
+    class IntersectionObserverMock {
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    }
+    (window as unknown as Record<string, unknown>).IntersectionObserver = IntersectionObserverMock;
+  }
+
   const getComputedStyle = (elt: Element) => {
     const style = (elt as HTMLElement).style;
     return {

@@ -11,6 +11,7 @@ import {
   type BubbleItemType,
   type ThoughtChainItemType,
 } from '@ant-design/x';
+import type { BubbleListRef } from '@ant-design/x/es/bubble';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -30,6 +31,7 @@ import { TOOL_DEFINITIONS, createToolHandlers } from '@/tools';
 import { GLOBAL_TOOL_DEFINITIONS, createGlobalToolHandlers } from '@/tools/globalTools';
 import { SCIVERSE_TOOL_DEFINITIONS, createSciverseToolHandlers } from '@/tools/sciverseTools';
 import { Markdown } from '@/lib/markdown';
+import { ChatTimeline, type TimelineTurn } from './ChatTimeline';
 
 const GLOBAL_PAPER_ID = '__global__';
 const SCIVERSE_PAPER_ID = '__sciverse__';
@@ -352,6 +354,10 @@ export default function ChatPanel({
   const undoingRef = useRef(false);
   const compactionSummaryRef = useRef('');
   const [chunkDirectory, setChunkDirectory] = useState('');
+  const listRef = useRef<BubbleListRef>(null);
+  const [activeTurn, setActiveTurn] = useState(-1);
+  const timelineActiveTurn = useRef(-1);
+  timelineActiveTurn.current = activeTurn;
 
   useEffect(() => {
     if (isGlobal || isSciverse) {
@@ -390,6 +396,16 @@ export default function ChatPanel({
       setIsStreaming(true);
       setCacheRate(paperId, null);
       setRoundStats(null);
+
+      // 首条消息：并行用 AI 生成会话标题（失败静默，保留默认「会话 N」）
+      if (prev.length === 0) {
+        api
+          .generateSessionTitle(text, model, apiKey)
+          .then((r) => {
+            if (r.ok && r.title) renameSession(paperId, sessionId, r.title);
+          })
+          .catch(() => {});
+      }
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -630,6 +646,7 @@ export default function ChatPanel({
       updateLastAssistantToolCalls,
       setCacheRate,
       persistSession,
+      renameSession,
     ],
   );
 
@@ -681,6 +698,7 @@ export default function ChatPanel({
   const bubbleItems = useMemo(() => {
     const items: NonNullable<React.ComponentProps<typeof Bubble.List>['items']> = [];
     let toolGroupKey = 0;
+    let userTurnIndex = 0;
 
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
@@ -724,10 +742,16 @@ export default function ChatPanel({
       }
 
       if (msg.role === 'user') {
+        const turnIndex = userTurnIndex++;
         items.push({
           key: `${i}-${msg.content}`,
           role: 'user',
           content: msg.content ?? '',
+          contentRender: (c) => (
+            <div data-turn-key={turnIndex} data-testid={`turn-${turnIndex}`}>
+              {c}
+            </div>
+          ),
         });
         continue;
       }
@@ -752,6 +776,55 @@ export default function ChatPanel({
     }
     return items;
   }, [messages, isStreaming]);
+
+  // ---- Timeline turns: one bar per user message (a turn) ----
+  const timelineTurns = useMemo<TimelineTurn[]>(() => {
+    const turns: TimelineTurn[] = [];
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        const text = (msg.content ?? '').replace(/\s+/g, ' ').trim();
+        turns.push({ key: `turn-${turns.length}`, label: text.slice(0, 60) || '用户提问' });
+      }
+    }
+    return turns;
+  }, [messages]);
+
+  // Track which turn is currently in view via the Bubble.List scroll box.
+  useEffect(() => {
+    const scrollBox = listRef.current?.scrollBoxNativeElement;
+    if (!scrollBox || timelineTurns.length === 0) return;
+
+    const updateActive = () => {
+      const userEls = scrollBox.querySelectorAll<HTMLElement>('[data-turn-key]');
+      if (userEls.length === 0) return;
+      const viewportTop = scrollBox.scrollTop;
+      const viewportBottom = viewportTop + scrollBox.clientHeight;
+      let active = userEls.length - 1;
+      for (let i = 0; i < userEls.length; i++) {
+        const top = userEls[i].offsetTop;
+        const bottom = top + userEls[i].offsetHeight;
+        if (bottom <= viewportTop) continue;
+        active = i;
+        break;
+      }
+      if (active !== timelineActiveTurn.current) setActiveTurn(active);
+    };
+
+    updateActive();
+    scrollBox.addEventListener('scroll', updateActive, { passive: true });
+    return () => scrollBox.removeEventListener('scroll', updateActive);
+  }, [messages, timelineTurns.length]);
+
+  const handleTurnSelect = useCallback(
+    (index: number) => {
+      const scrollBox = listRef.current?.scrollBoxNativeElement;
+      if (!scrollBox) return;
+      const el = scrollBox.querySelectorAll<HTMLElement>('[data-turn-key]')[index];
+      el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      setActiveTurn(index);
+    },
+    [],
+  );
 
   // ---- Conversations items ----
   const conversationItems = useMemo(
@@ -799,50 +872,40 @@ export default function ChatPanel({
       <Flex align="center" justify="space-between" style={{ padding: '8px 16px', borderBottom: '1px solid rgba(5,5,5,0.06)' }}>
         <Flex align="center" gap={8} style={{ minWidth: 0, flex: 1 }}>
           <RobotOutlined style={{ color: 'rgba(0,0,0,0.45)' }} />
-          <Typography.Text
-            ellipsis
-            style={{ fontSize: 12, color: 'rgba(0,0,0,0.65)', cursor: 'pointer' }}
-            onClick={() => handleRename(sessionId)}
-          >
-            {currentTitle || '无会话'}
-          </Typography.Text>
-          {sessions.length > 1 && (
-            <Tag style={{ fontSize: 11, marginLeft: 4 }} color="default">
-              {sessions.length} 会话
-            </Tag>
+          {isSciverse || isGlobal ? (
+            <Typography.Text ellipsis style={{ fontSize: 12, color: 'rgba(0,0,0,0.65)' }}>
+              {currentTitle || '无会话'}
+            </Typography.Text>
+          ) : (
+            <Typography.Text
+              ellipsis
+              style={{ fontSize: 12, color: 'rgba(0,0,0,0.65)', cursor: 'pointer' }}
+              onClick={() => handleRename(sessionId)}
+            >
+              {currentTitle || '无会话'}
+            </Typography.Text>
           )}
         </Flex>
-        <Space size={4}>
-          <Button
-            type="text"
-            size="small"
-            icon={<PlusOutlined />}
-            onClick={() => void createNewSession(paperId)}
-            disabled={isStreaming}
-            title="新建对话"
-          />
-          <Button
-            type="text"
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={handleClearChat}
-            disabled={isStreaming || sessions.length <= 1}
-            title="删除当前对话"
-          />
-        </Space>
-      </Flex>
-
-      {/* Suggestion quick prompts */}
-      <Flex style={{ padding: '8px 16px', borderBottom: '1px solid rgba(5,5,5,0.06)' }} wrap gap={8}>
-        <Prompts
-          items={quickPrompts.map((p, idx) => ({
-            key: String(idx),
-            label: p,
-            disabled: isStreaming || !apiKey,
-          }))}
-          wrap
-          onItemClick={(info) => handleQuickPrompt(info.data.label as string)}
-        />
+        {!isSciverse && !isGlobal && (
+          <Space size={4}>
+            <Button
+              type="text"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => void createNewSession(paperId)}
+              disabled={isStreaming}
+              title="新建对话"
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              onClick={handleClearChat}
+              disabled={isStreaming || sessions.length <= 1}
+              title="删除当前对话"
+            />
+          </Space>
+        )}
       </Flex>
 
       {/* Main area */}
@@ -875,10 +938,19 @@ export default function ChatPanel({
           </Flex>
         ) : (
           <Bubble.List
+            ref={listRef}
             items={bubbleItems}
             role={roles}
             autoScroll
             style={{ height: '100%', padding: 16, overflowY: 'auto' }}
+          />
+        )}
+
+        {!isEmpty && timelineTurns.length > 0 && (
+          <ChatTimeline
+            turns={timelineTurns}
+            activeTurn={activeTurn < 0 ? timelineTurns.length - 1 : activeTurn}
+            onSelect={handleTurnSelect}
           />
         )}
 

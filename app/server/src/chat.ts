@@ -56,6 +56,68 @@ const logStmt = db.prepare(
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 );
 
+// 会话标题生成：根据用户的第一条消息用 AI 生成简短标题
+router.post('/chat/title', async (req: Request, res: Response) => {
+  const raw = req.body as Record<string, unknown> | undefined;
+  const settings = readSettings();
+  const active = getActiveProvider(settings);
+  const apiKey =
+    typeof raw?.apiKey === 'string' && raw.apiKey.trim() ? raw.apiKey.trim() : active.apiKey;
+  const baseUrl = normalizeBaseUrl(raw?.baseUrl ?? active.baseUrl);
+  const model = toModel(
+    typeof raw?.model === 'string' && raw.model ? raw.model : settings.model,
+  );
+  const text = typeof raw?.text === 'string' ? raw.text.trim() : '';
+
+  if (!text) {
+    res.status(400).json({ error: '缺少要生成标题的消息内容' });
+    return;
+  }
+  if (!apiKey) {
+    res.json({ ok: false, error: '请先填写 API Key' });
+    return;
+  }
+
+  const system = '你是会话标题生成器。根据用户的第一条消息，生成一个简洁的会话标题。要求：不超过 12 个字、贴合主题、不含引号和标点结尾。直接输出标题本身，不要任何解释。';
+  try {
+    const resp = await fetchWithRetry(
+      `${baseUrl}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: text },
+          ],
+          max_tokens: 20,
+          stream: false,
+        }),
+      },
+      2,
+      30_000,
+    );
+    const data = (await resp.json().catch(() => null)) as {
+      choices?: { message?: { content?: string } }[];
+    } | null;
+    const title = data?.choices?.[0]?.message?.content?.trim().replace(/^["'“”「」『』]+|["'“”「」『』]+$/g, '') || '';
+    if (!title) {
+      res.json({ ok: false, error: 'AI 未能生成标题' });
+      return;
+    }
+    logger.info({ model, title }, 'session title generated');
+    res.json({ ok: true, title });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    logger.warn({ err: e, baseUrl }, 'session title generation failed');
+    res.status(500).json({ ok: false, error: message });
+  }
+});
+
 // 连接测试：用表单当前填的值（无需先保存）发一次最小请求，验证 API 可用
 router.post('/chat/test', async (req: Request, res: Response) => {
   const raw = req.body as Record<string, unknown> | undefined;

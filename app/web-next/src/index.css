@@ -61,3 +61,22 @@ body {
   border: 1px solid rgba(128, 128, 128, 0.3);
   padding: 4px 8px;
 }
+
+/* 对话时间线导航条横杠：悬浮涟漪动效的平滑过渡（高度/宽度/颜色由组件内联计算） */
+.chat-timeline-bar {
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.chat-timeline-bar:hover {
+  box-shadow: 0 0 4px rgba(22, 119, 255, 0.3);
+}
+
+/* 消息列表浮动面板 */
+.chat-timeline-panel .chat-timeline-panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-timeline-panel .chat-timeline-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 3px;
+}

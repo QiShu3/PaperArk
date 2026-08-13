@@ -298,6 +298,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(s),
     }),
+  generateSessionTitle: (text: string, model: string, apiKey: string) =>
+    http<{ ok: boolean; title?: string; error?: string }>('/api/chat/title', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, model, apiKey }),
+    }),
   getResearchConfig: () => http<ResearchConfigDto>('/api/research/directions'),
   createResearchDirection: (d: {
     name: string;
