@@ -944,6 +944,7 @@ export default function ChatPanel({
             autoScroll
             className="chat-bubble-list"
             classNames={{ scroll: 'chat-bubble-scroll' }}
+            styles={{ scroll: { scrollbarWidth: 'none', msOverflowStyle: 'none' } }}
             style={{ height: '100%', padding: 16, overflowY: 'auto' }}
           />
         )}

@@ -73,12 +73,16 @@ body {
 }
 
 /* 对话消息列表：隐藏滚动条（保留滚轮/触摸滚动），右侧由时间线导航条独占 */
-.chat-bubble-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+.chat-bubble-scroll,
+.ant-bubble-list-scroll-box {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
-.chat-bubble-scroll::-webkit-scrollbar {
-  display: none;
+.chat-bubble-scroll::-webkit-scrollbar,
+.ant-bubble-list-scroll-box::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* 消息列表浮动面板 */
