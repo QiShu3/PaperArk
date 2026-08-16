@@ -12,7 +12,6 @@ import {
   SearchOutlined,
   SettingOutlined,
   ThunderboltOutlined,
-  GlobalOutlined,
 } from '@ant-design/icons';
 import { api } from '../api';
 import type { Paper, Settings as SettingsType } from '../types';
@@ -192,7 +191,7 @@ export default function PaperList() {
   const [acceptedOnly, setAcceptedOnly] = useState(false);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [hasDoiOnly, setHasDoiOnly] = useState(false);
-  const [yearFilter, setYearFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<SortKey>('addedDesc');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -225,12 +224,12 @@ export default function PaperList() {
       ? direction
       : GLOBAL_DIRECTION;
 
-  const years = useMemo(() => {
-    const set = new Set<string>();
+  const yearCounts = useMemo(() => {
+    const map = new Map<string, number>();
     for (const p of papersQ.data ?? []) {
-      if (p.year) set.add(p.year);
+      if (p.year) map.set(p.year, (map.get(p.year) ?? 0) + 1);
     }
-    return [...set].sort((a, b) => Number(b) - Number(a));
+    return [...map.entries()].sort((a, b) => Number(b[0]) - Number(a[0]));
   }, [papersQ.data]);
 
   const venueCounts = useMemo(() => {
@@ -267,22 +266,13 @@ export default function PaperList() {
 
   const sorted = useMemo(() => sortPapers(filtered, sortBy), [filtered, sortBy]);
 
-  const toggleTag = (t: string) =>
-    setSelectedTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
-
-  const toggleVenue = (v: string) =>
-    setSelectedVenues((cur) => (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]));
-
-  const toggleSource = (s: string) =>
-    setSelectedSources((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
-
   const loading = papersQ.isLoading || (searching && searchQ.isLoading);
   const error = papersQ.error || (searching ? searchQ.error : null);
 
   return (
     <div style={{ minHeight: '100vh' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 16px' }}>
-        <Flex align="center" justify="space-between" gap={16}>
+        <Flex vertical gap={12}>
           <div>
             <Typography.Title level={3} style={{ margin: 0 }}>
               {activeDirection === GLOBAL_DIRECTION ? 'Papers 知识库' : activeDirection}
@@ -291,24 +281,23 @@ export default function PaperList() {
               共 {filtered.length} 篇论文
             </Typography.Text>
           </div>
-          <Space>
-            <Button icon={<MessageOutlined />} onClick={() => navigate('/chat')}>
-              全局对话
-            </Button>
-            <Button icon={<GlobalOutlined />} onClick={() => navigate('/sciverse')}>
-              Sciverse 工作区
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => navigate('/research')}>
-              研究方向
-            </Button>
-            <Button icon={<ThunderboltOutlined />} onClick={() => navigate('/browse')}>
-              快速浏览
-            </Button>
+          <Flex align="center" justify="space-between" gap={16}>
+            <Space>
+              <Button icon={<MessageOutlined />} onClick={() => navigate('/chat')}>
+                全局对话
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={() => navigate('/research')}>
+                研究方向
+              </Button>
+              <Button icon={<ThunderboltOutlined />} onClick={() => navigate('/browse')}>
+                快速浏览
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setUploadOpen(true)}>
+                新增论文
+              </Button>
+            </Space>
             <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} aria-label="设置" />
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setUploadOpen(true)}>
-              新增论文
-            </Button>
-          </Space>
+          </Flex>
         </Flex>
 
         <div style={{ marginTop: 24 }}>
@@ -321,8 +310,8 @@ export default function PaperList() {
           />
         </div>
 
-        <Flex gap={8} wrap style={{ marginTop: 12 }} align="flex-start">
-          <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>
+        <Flex gap={12} wrap style={{ marginTop: 12 }} align="center">
+          <Space size={4} wrap>
             <Tag
               color={autoOnly ? 'blue' : 'default'}
               style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}
@@ -344,75 +333,62 @@ export default function PaperList() {
             >
               有 DOI
             </Tag>
-            {sourceCounts.map(([s, count]) => {
-              const active = selectedSources.includes(s);
-              return (
-                <Tag
-                  key={s}
-                  color={active ? 'purple' : 'default'}
-                  style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}
-                  onClick={() => toggleSource(s)}
-                  role="button"
-                  aria-label={`筛选来源 ${sourceLabel(s)}`}
-                >
-                  {sourceLabel(s)} <span style={{ opacity: 0.6 }}>{count}</span>
-                </Tag>
-              );
-            })}
-            {venueCounts.map(([v, count]) => {
-              const active = selectedVenues.includes(v);
-              return (
-                <Tag
-                  key={v}
-                  color={active ? 'blue' : 'default'}
-                  style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}
-                  onClick={() => toggleVenue(v)}
-                  role="button"
-                  aria-label={`筛选 ${v}`}
-                >
-                  {v} <span style={{ opacity: 0.6 }}>{count}</span>
-                </Tag>
-              );
-            })}
-            {(tagsQ.data?.length ?? 0) > 0 &&
-              tagsQ.data!.map((t) => {
-                const active = selectedTags.includes(t.tag);
-                return (
-                  <Tag
-                    key={t.tag}
-                    color={active ? 'blue' : 'default'}
-                    style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}
-                    onClick={() => toggleTag(t.tag)}
-                  >
-                    {t.tag} <span style={{ opacity: 0.6 }}>{t.count}</span>
-                  </Tag>
-                );
-              })}
-          </div>
-          <Space>
-            <Select
-              value={yearFilter}
-              onChange={(v) => setYearFilter(v ?? '')}
-              placeholder="全部年份"
-              style={{ width: 130 }}
-              allowClear
-              options={years.map((y) => ({ value: y, label: y }))}
-              aria-label="按年份筛选"
-            />
-            <Select
-              value={sortBy}
-              onChange={(v) => setSortBy(v as SortKey)}
-              style={{ width: 130 }}
-              options={[
-                { value: 'addedDesc', label: '最新收录' },
-                { value: 'addedAsc', label: '最早收录' },
-                { value: 'yearDesc', label: '年份最新' },
-                { value: 'yearAsc', label: '年份最早' },
-                { value: 'titleAsc', label: '标题 A-Z' },
-              ]}
-              aria-label="排序方式"
-            />
           </Space>
+          <Select
+            mode="multiple"
+            value={selectedSources}
+            onChange={(v: string[]) => setSelectedSources(v)}
+            placeholder="来源"
+            style={{ minWidth: 140, maxWidth: 240 }}
+            maxTagCount="responsive"
+            allowClear
+            options={sourceCounts.map(([s, count]) => ({ value: s, label: `${sourceLabel(s)} (${count})` }))}
+            aria-label="按来源筛选"
+          />
+          <Select
+            mode="multiple"
+            value={selectedVenues}
+            onChange={(v: string[]) => setSelectedVenues(v)}
+            placeholder="会议 / 期刊"
+            style={{ minWidth: 160, maxWidth: 280 }}
+            maxTagCount="responsive"
+            allowClear
+            options={venueCounts.map(([v, count]) => ({ value: v, label: `${v} (${count})` }))}
+            aria-label="按会议筛选"
+          />
+          <Select
+            mode="multiple"
+            value={selectedTags}
+            onChange={(v: string[]) => setSelectedTags(v)}
+            placeholder="标签"
+            style={{ minWidth: 120, maxWidth: 200 }}
+            maxTagCount="responsive"
+            allowClear
+            options={(tagsQ.data ?? []).map((t) => ({ value: t.tag, label: `${t.tag} (${t.count})` }))}
+            aria-label="按标签筛选"
+          />
+          <Select
+            value={yearFilter}
+            onChange={(v) => setYearFilter(v ?? undefined)}
+            placeholder="年份"
+            style={{ width: 130 }}
+            allowClear
+            options={yearCounts.map(([y, count]) => ({ value: y, label: `${y} (${count})` }))}
+            aria-label="按年份筛选"
+          />
+          <Select
+            value={sortBy}
+            onChange={(v) => setSortBy(v as SortKey)}
+            style={{ width: 130 }}
+            options={[
+              { value: 'addedDesc', label: '最新收录' },
+              { value: 'addedAsc', label: '最早收录' },
+              { value: 'yearDesc', label: '年份最新' },
+              { value: 'yearAsc', label: '年份最早' },
+              { value: 'titleAsc', label: '标题 A-Z' },
+            ]}
+            aria-label="排序方式"
+          />
         </Flex>
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -100,7 +100,7 @@ describe('PaperList', () => {
     await screen.findByText('Zeta Paper');
     const yearSelect = screen.getByLabelText('按年份筛选');
     fireEvent.mouseDown(yearSelect);
-    fireEvent.click(await screen.findByText('2026', { selector: '.ant-select-item-option-content' }));
+    fireEvent.click(await screen.findByText(/2026/, { selector: '.ant-select-item-option-content' }));
 
     await waitFor(() => {
       expect(screen.queryByText('Zeta Paper')).not.toBeInTheDocument();
@@ -109,12 +109,12 @@ describe('PaperList', () => {
     });
   });
 
-  it('filters papers by venue badge', async () => {
+  it('filters papers by venue', async () => {
     renderPage();
 
     await screen.findByText('Zeta Paper');
-    const venueBadge = screen.getByLabelText('筛选 arXiv');
-    fireEvent.click(venueBadge);
+    fireEvent.mouseDown(screen.getByLabelText('按会议筛选'));
+    fireEvent.click(await screen.findByText(/arXiv/, { selector: '.ant-select-item-option-content' }));
 
     await waitFor(() => {
       expect(screen.getByText('Zeta Paper')).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('PaperList', () => {
     });
   });
 
-  it('shows all venue badges without an expander', async () => {
+  it('shows all venues as options in the venue select', async () => {
     const manyVenues: Paper[] = ['A', 'B', 'C', 'D', 'E', 'F'].map((v, i) => ({
       id: `2607.1000${i}`,
       title: `Paper ${v}`,
@@ -137,13 +137,13 @@ describe('PaperList', () => {
     renderPage();
 
     await screen.findByText('Paper A');
+    fireEvent.mouseDown(screen.getByLabelText('按会议筛选'));
     for (const v of ['A', 'B', 'C', 'D', 'E', 'F']) {
-      expect(screen.getByLabelText(`筛选 ${v}`)).toBeInTheDocument();
+      expect(await screen.findByText(`${v} (1)`, { selector: '.ant-select-item-option-content' })).toBeInTheDocument();
     }
-    expect(screen.queryByText(/更多/)).not.toBeInTheDocument();
   });
 
-  it('filters papers by source badge', async () => {
+  it('filters papers by source', async () => {
     const multiSourcePapers: Paper[] = [
       { ...papers[0] },
       { ...papers[1] },
@@ -162,7 +162,8 @@ describe('PaperList', () => {
     renderPage();
 
     await screen.findByText('Zeta Paper');
-    fireEvent.click(screen.getByLabelText('筛选来源 OpenAlex'));
+    fireEvent.mouseDown(screen.getByLabelText('按来源筛选'));
+    fireEvent.click(await screen.findByText(/OpenAlex/, { selector: '.ant-select-item-option-content' }));
 
     await waitFor(() => {
       expect(screen.getByText('OpenAlex Paper')).toBeInTheDocument();
