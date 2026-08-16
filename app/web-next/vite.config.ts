@@ -16,5 +16,9 @@ export default defineConfig({
       '/rawPDF': 'http://localhost:3001',
       '/MD': 'http://localhost:3001',
     },
+    watch: {
+      // 忽略原子写入产生的临时目录（`.xxx.tmpdir`），避免 Windows 下 EBUSY 崩溃
+      ignored: ['**/.*.tmpdir/**'],
+    },
   },
 });
