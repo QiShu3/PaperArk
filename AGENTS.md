@@ -1044,3 +1044,41 @@ extractPdfToMd(pdfPath, id):
 | Vite 构建 | ✅ |
 
 > 注：Paper Schema（结构化实体/证据/引用图谱，BETA）未纳入本阶段；届时直接调 REST API 自建工具（参考官方 9 个意图工具设计），不引入 MCP。`SCIVERSE_MCP_DISABLED=1` 可关闭该能力。
+
+---
+
+## Phase 16 — 聚合首页（2026-08-16）
+
+### 功能
+
+新增 `/` 首页作为**聚合入口**，集中提供两大工作区入口，`PaperList` 由 `/` 迁移至 `/papers`：
+
+- **两张主入口卡片**：本地论文库（→ `/papers`，数据库图标）与 Sciverse 工作区（→ `/sciverse`，地球图标），整卡可点（`Link` 包裹，键盘可达），hover 高亮
+- **动态信息**：本地论文库卡片显示库内论文篇数（`api.listPapers`）；Sciverse 卡片显示连接状态（`api.sciverseStatus` → 已连接 / 未配置 Token / 未启用）；加载中显示骨架，接口失败静默隐藏统计，不阻塞页面
+- **返回路径统一**：GlobalChat / SciversePage / PaperReader（删除后、论文不存在、顶栏返回）/ ResearchPage 的「返回」按钮由 `/` 改为 `/papers`（回到论文库）；NotFound「回到首页」仍指向 `/`（真首页）
+- 路由：`/` → HomePage，`/papers` → PaperList，其余（`/paper/:id`、`/chat`、`/sciverse`、`/research`）不变；server 端 history fallback 已支持 `/papers` 深链接，无后端改动
+
+### 修改文件清单
+
+```
+新增:
+  app/web-next/src/pages/HomePage.tsx           (聚合首页：两入口卡片 + 统计/状态)
+  app/web-next/src/__tests__/HomePage.test.tsx  (6 用例：渲染/统计/Token 缺失/导航×2/API 失败容错)
+
+修改:
+  app/web-next/src/App.tsx                      (路由：/ → HomePage，/papers → PaperList)
+  app/web-next/src/pages/GlobalChat.tsx         (返回 → /papers)
+  app/web-next/src/pages/SciversePage.tsx       (返回 → /papers)
+  app/web-next/src/pages/PaperReader.tsx        (3 处返回/删除后 → /papers)
+  app/web-next/src/pages/ResearchPage.tsx       (返回链接 → /papers)
+  app/web-next/src/__tests__/PaperList.test.tsx (用例标题文案)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 前端单元 + 集成 | 84 tests ✅（原 78 + 新增 6） |
+| TypeScript 编译（web-next） | ✅ |
+| Vite 构建 | ✅ |

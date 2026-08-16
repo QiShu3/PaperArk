@@ -102,7 +102,7 @@ export default function GlobalChat() {
     <Flex vertical style={{ height: '100vh' }}>
       <Flex align="center" justify="space-between" style={{ padding: '8px 16px', borderBottom: '1px solid rgba(5,5,5,0.06)' }}>
         <Flex align="center" gap={12}>
-          <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')} aria-label="返回" />
+          <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/papers')} aria-label="返回" />
           <Typography.Title level={5} style={{ margin: 0 }}>
             全局对话
           </Typography.Title>

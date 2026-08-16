@@ -128,7 +128,7 @@ export default function PaperReader() {
           message.success('已删除');
           qc.invalidateQueries({ queryKey: ['papers'] });
           qc.invalidateQueries({ queryKey: ['tags'] });
-          navigate('/');
+          navigate('/papers');
         } catch (e) {
           message.error(e instanceof Error ? e.message : '删除失败');
         }
@@ -156,7 +156,7 @@ export default function PaperReader() {
         <Typography.Text type="danger">
           {paperQ.error instanceof Error ? paperQ.error.message : '论文不存在'}
         </Typography.Text>
-        <Button onClick={() => navigate('/')}>
+        <Button onClick={() => navigate('/papers')}>
           <ArrowLeftOutlined /> 返回列表
         </Button>
       </Flex>
@@ -224,7 +224,7 @@ export default function PaperReader() {
       <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(5,5,5,0.06)' }}>
         <Flex align="center" justify="space-between" gap={16}>
           <Flex align="center" gap={8} style={{ flex: 1, minWidth: 0 }}>
-            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/')} aria-label="返回" />
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/papers')} aria-label="返回" />
             <Typography.Title level={5} style={{ margin: 0 }} ellipsis>
               {paper.title}
             </Typography.Title>

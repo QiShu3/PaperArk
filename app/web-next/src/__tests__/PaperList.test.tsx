@@ -260,7 +260,7 @@ describe('PaperList', () => {
     expect(screen.getByText('Alpha Paper')).toBeInTheDocument();
   });
 
-  it('opens the settings dialog from the home page', async () => {
+  it('opens the settings dialog from the papers page', async () => {
     renderPage();
 
     await screen.findByText('Zeta Paper');

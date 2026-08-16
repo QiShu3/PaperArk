@@ -217,7 +217,7 @@ export default function ResearchPage() {
         <Flex align="center" justify="space-between" gap={16} wrap>
           <Flex align="center" gap={12}>
             <Button type="text" icon={<ArrowLeftOutlined />}>
-              <Link to="/" aria-label="返回论文列表" style={{ color: 'inherit' }} />
+              <Link to="/papers" aria-label="返回论文列表" style={{ color: 'inherit' }} />
             </Button>
             <div>
               <Typography.Title level={3} style={{ margin: 0 }}>
