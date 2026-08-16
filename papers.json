@@ -1,63 +1,119 @@
 {
   "2510.27285v4": {
     "tags": [],
-    "venue": "未收录",
     "addedAt": "2026-07-23T00:36:32.948Z",
+    "venue": "未收录",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Qinghong Yin",
+      "Yu Tian",
+      "Heming Yang",
+      "Xiang Chen",
+      "Xianlin Zhang",
+      "Yue Ming",
+      "Xueming Li",
+      "Yue Zhang"
+    ],
+    "abstract": "Concept erasure methods aim to remove specific unsafe target concepts in diffusion models while preserving image generation utility. To address the vulnerability that erased concepts can be easily recovered under adversarial attacks, adversarial concept erasure methods integrate adversarial optimization into the concept erasure process. However, existing adversarial concept erasure methods face a trade-off between robustness and computational cost. We attribute this to adversarial optimization techniques that use random samples to approximate the adversarial objective function. Adversarial optimization that uses a small number of samples fails to produce adversarial embeddings that accurately capture the target concept space. To mitigate this limitation, we propose Semantic-Guided Adversarial Optimization, which uses a single sample to produce adversarial embeddings that better capture the target concept space. We also propose Semantic-Guided Concept Erasure, which automatically maps the target concept to a semantically similar surrogate. Extensive experiments on not-safe-for-work content, artistic styles, and object-related concepts demonstrate that our method, S-GRACE (Semantic-Guided Robust Adversarial Concept Erasure) achieves state-of-the-art erasure robustness and superior image generation utility, with significantly lower computational cost than existing methods. Our code is available at https://github.com/Qhong-522/S-GRACE."
   },
   "2512.23953v1": {
     "tags": [],
-    "venue": "未收录",
     "addedAt": "2026-07-24T01:30:00.000Z",
+    "venue": "未收录",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Changzhen Li",
+      "Yuecong Min",
+      "Jie Zhang",
+      "Zheng Yuan",
+      "Shiguang Shan",
+      "Xilin Chen"
+    ],
+    "abstract": "The rapid evolution of Text-to-Video (T2V) diffusion models has driven remarkable advancements in generating high-quality, temporally coherent videos from natural language descriptions. Despite these achievements, their vulnerability to adversarial attacks remains largely unexplored. In this paper, we introduce T2VAttack, a comprehensive study of adversarial attacks on T2V diffusion models from both semantic and temporal perspectives. Considering the inherently dynamic nature of video data, we propose two distinct attack objectives: a semantic objective to evaluate video-text alignment and a temporal objective to assess the temporal dynamics. To achieve an effective and efficient attack process, we propose two adversarial attack methods: (i) T2VAttack-S, which identifies semantically or temporally critical words in prompts and replaces them with synonyms via greedy search, and (ii) T2VAttack-I, which iteratively inserts optimized words with minimal perturbation to the prompt. By combining these objectives and strategies, we conduct a comprehensive evaluation on the adversarial robustness of several state-of-the-art T2V models, including ModelScope, CogVideoX, Open-Sora, and HunyuanVideo. Our experiments reveal that even minor prompt modifications, such as the substitution or insertion of a single word, can cause substantial degradation in semantic fidelity and temporal dynamics, highlighting critical vulnerabilities in current T2V diffusion models."
   },
   "2512.24111v1": {
     "tags": [],
-    "venue": "未收录",
     "addedAt": "2026-07-24T01:30:00.000Z",
+    "venue": "未收录",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Yongtao Chen",
+      "Yanbo Wang",
+      "Wentao Zhao",
+      "Guole Shen",
+      "Tianchen Deng",
+      "Jingchuan Wang"
+    ],
+    "abstract": "Monocular Depth Estimation (MDE) serves as a core perception module in autonomous driving systems, but it remains highly susceptible to adversarial attacks. Errors in depth estimation may propagate through downstream decision making and influence overall traffic safety. Existing physical attacks primarily rely on texture-based patches, which impose strict placement constraints and exhibit limited realism, thereby reducing their effectiveness in complex driving environments. To overcome these limitations, this work introduces a training-free generative adversarial attack framework that generates naturalistic, scene-consistent adversarial objects via a diffusion-based conditional generation process. The framework incorporates a Salient Region Selection module that identifies regions most influential to MDE and a Jacobian Vector Product Guidance mechanism that steers adversarial gradients toward update directions supported by the pre-trained diffusion model. This formulation enables the generation of physically plausible adversarial objects capable of inducing substantial adversarial depth shifts. Extensive digital and physical experiments demonstrate that our method significantly outperforms existing attacks in effectiveness, stealthiness, and physical deployability, underscoring its strong practical implications for autonomous driving safety assessment."
   },
   "2602.10319v1": {
     "tags": [],
+    "addedAt": "2026-07-24T01:30:00.000Z",
     "venue": "ICME",
     "year": "2025",
     "area": "扩散模型防御",
-    "addedAt": "2026-07-24T01:30:00.000Z",
+    "doi": "10.1109/icme59968.2025.11209882",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Jiaxuan Zhu",
+      "Siyu Huang"
+    ],
+    "abstract": "Recently, adversarial attacks for diffusion models as well as their fine-tuning process have been developed rapidly. To prevent the abuse of these attack algorithms from affecting the practical application of diffusion models, it is critical to develop corresponding defensive strategies. In this work, we propose an efficient defensive strategy, named Low-Rank Defense (LoRD), to defend the adversarial attack on Latent Diffusion Models (LDMs). LoRD introduces the merging idea and a balance parameter, combined with the low-rank adaptation (LoRA) modules, to detect and defend the adversarial samples. Based on LoRD, we build up a defense pipeline that applies the learned LoRD modules to help diffusion models defend against attack algorithms. Our method ensures that the LDM fine-tuned on both adversarial and clean samples can still generate high-quality images. To demonstrate the effectiveness of our approach, we conduct extensive experiments on facial and landscape images, and our method shows significantly better defense performance compared to the baseline methods."
   },
   "2602.14679v2": {
     "tags": [],
+    "addedAt": "2026-07-24T01:30:00.000Z",
     "venue": "ECCV",
     "year": "2026",
     "area": "图像保护",
-    "addedAt": "2026-07-24T01:30:00.000Z",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Chanhui Lee",
+      "Donggyu Choi",
+      "Seunghyun Shin",
+      "Hae-Gon Jeon",
+      "Jeany Son"
+    ],
+    "abstract": "Diffusion model advances have enabled powerful text-guided image editing, but also raise ethical and legal risks such as deepfakes and unauthorized use. To prevent these risks, adversarial attack-based image immunization has emerged as a promising defense against AI-driven semantic manipulation. Yet, most existing approaches require image-specific optimization or additional neural networks at inference time, hindering scalability and practicality. In this paper, we propose the first universal adversarial perturbation-based image immunization framework that generates a single, image-agnostic adversarial perturbation specifically designed for diffusion-based editing pipelines. Inspired by UAP used in targeted attacks, our method aims to generate a UAP that induces diffusion models to misinterpret the input image as a specific semantic target. Simultaneously, it suppresses original content to misdirect the model's attention during editing, thereby effectively blocking unauthorized edits by overwriting the image's original semantics via the UAP. Extensive experiments show that our method, as the first universal immunization approach, significantly outperforms several baselines in the UAP setting. Notably, despite the inherent difficulty of universal perturbations, our method achieves competitive or superior performance compared to image-specific methods under a more restricted perturbation budget, while also exhibiting strong black-box transferability across diverse diffusion models."
   },
   "2603.24570v1": {
     "tags": [],
+    "addedAt": "2026-07-24T01:30:00.000Z",
     "venue": "CVPR",
     "year": "2026",
     "area": "视频防护",
-    "addedAt": "2026-07-24T01:30:00.000Z",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Duc Vu",
+      "Anh Nguyen",
+      "Chi Tran",
+      "Anh Tran"
+    ],
+    "abstract": "Advances in diffusion-based video generation models, while significantly improving human animation, poses threats of misuse through the creation of fake videos from a specific person's photo and text prompts. Recent efforts have focused on adversarial attacks that introduce crafted perturbations to protect images from diffusion-based models. However, most existing approaches target image generation, while relatively few explicitly address image-to-video diffusion models (VDMs), and most primarily focus on UNet-based architectures. Hence, their effectiveness against Diffusion Transformer (DiT) models remains largely under-explored, as these models demonstrate improved feature retention, and stronger temporal consistency due to larger capacity and advanced attention mechanisms. In this work, we introduce Anti-I2V, a novel defense against malicious human image-to-video generation, applicable across diverse diffusion backbones. Instead of restricting noise updates to the RGB space, Anti-I2V operates in both the $L$*$a$*$b$* and frequency domains, improving robustness and concentrating on salient pixels. We then identify the network layers that capture the most distinct semantic features during the denoising process to design appropriate training objectives that maximize degradation of temporal coherence and generation fidelity. Through extensive validation, Anti-I2V demonstrates state-of-the-art defense performance against diverse video diffusion models, offering an effective solution to the problem."
   },
   "2604.09405v1": {
     "tags": [],
-    "venue": "未收录",
     "addedAt": "2026-07-24T01:30:00.000Z",
-    "directions": []
+    "venue": "未收录",
+    "directions": [],
+    "authors": [
+      "Junyeong Ahn",
+      "Seojin Yoon",
+      "Sungyong Baik"
+    ],
+    "abstract": "As text-to-image diffusion models grow increasingly prevalent, the ability to remove specific concepts-mostly explicit content and many copyrighted characters or styles-has become essential for safety and compliance. Existing unlearning approaches often require costly re-training, modify parameters at the cost of degradation of unrelated concept fidelity, or depend on indirect inference-time adjustment that compromise the effectiveness of concept erasure. Inspired by the success of energy-guided sampling for preservation of the condition of diffusion models, we introduce Energy-Guided Latent Optimization for Concept Erasure (EGLOCE), a training-free approach that removes unwanted concepts by re-directing noisy latent during inference. Our method employs a dual-objective framework: a repulsion energy that steers generation away from target concepts via gradient descent in latent space, and a retention energy that preserves semantic alignment to the original prompt. Combined with previous approaches that either require erroneous modified model weights or provide weak inference-time guidance, EGLOCE operates entirely at inference and enhances erasure performance, enabling plug-and-play integration. Extensive experiments demonstrate that EGLOCE improves concept removal while maintaining image quality and prompt alignment across baselines, even with adversarial attacks. To the best of our knowledge, our work is the first to establish a new paradigm for safe and controllable image generation through dual energy-based guidance during sampling."
   },
   "2606.09909v1": {
     "tags": [],
@@ -67,113 +123,232 @@
     "area": "版权攻击",
     "source": "arxiv-auto",
     "sourceId": "2606.09909",
+    "doi": "10.1145/3770855.3817760",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Ziang Xu",
+      "Wenbo Yu",
+      "Hongyao Yu",
+      "Hao Fang",
+      "Jiawei Kong",
+      "Bin Chen",
+      "Hao Wu",
+      "Shu-Tao Xia",
+      "Zhiyong Wu"
+    ],
+    "abstract": "With the growing concerns over copyright infringement in diffusion-based customization, adversarial attacks have emerged as a prominent defense strategy to prevent malicious content forgery in personalized image generation. However, current defenses typically introduce persistent perturbations in the latent space of Latent Diffusion Models (LDMs), which remain susceptible to adaptive bypasses by adversaries. In this paper, we introduce Two-Stage Latent Feature Optimization (TS-LFO), an efficient and effective copyright-stealing attack against protected diffusion-based customization. We begin by observing that existing defenses primarily disrupt the mapping between input images and their latent representations, thereby degrading the model's ability to produce personalized outputs. To counteract this, TS-LFO restores the broken mapping through a two-stage optimization process. In the Latent Denoising Stage, we enhance semantic consistency between latent codes and input images by jointly minimizing a Latent-Image Alignment Loss and a Latent Diffusion Loss with timestep-dependent weights, effectively suppressing the high-frequency noise introduced by defenses. In the Latent Reconstruction Stage, we recover low-frequency semantic information using pixel-level constraints to refine the latent features. Extensive experiments show that TS-LFO consistently bypasses state-of-the-art (SOTA) copyright defenses and outperforms SOTA copyright attacks such as DiffPure, GrIDPure and IMPRESS across diverse settings."
   },
   "2606.11615v2": {
     "tags": [],
-    "venue": "未收录",
     "addedAt": "2026-07-24T01:30:00.000Z",
+    "venue": "未收录",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Omid Ahmadieh",
+      "Nima Karimian"
+    ],
+    "abstract": "The widespread adoption of face recognition (FR) technologies raises serious privacy concerns, as facial data can be exploited without consent. To address this challenge, we propose Adv-TGD, a generative adversarial attack framework that synthesizes photorealistic faces capable of impersonating target identities and deceiving face recognition systems. Built upon Stable Diffusion v2.1, Adv-TGD performs per-sample LoRA fine-tuning conditioned on concise textual prompts to generate natural yet adversarially manipulated identities. Unlike conventional identity attack approaches, our method optimizes lightweight cross-attention adapters for each source-target pair within a fixed-timestep denoising process. Latent blending is constrained by a face-local heatmap mask to ensure spatially precise identity manipulation while preserving non-sensitive regions. We introduce a composite objective that integrates masked epsilon-MSE reconstruction, thresholded identity divergence in FR embedding space, directional feature alignment, and source-similarity suppression to balance adversarial attack and visual realism. Optionally, LLaVA-generated attribute prompts enhance fine-grained semantic details without reintroducing identity cues. Under the black-box evaluation protocol, Adv-TGD attains an average attack success rate (ASR) of 85.90% across IR152, IRSE50, MobileFace, and FaceNet, surpassing the semantic SOTA baseline Adv-CPG by 6.25 points, the diffusion-based makeup method DiffAIM by 3 points, and the noise-based P3-Mask by 16 points. Despite its strong attack efficacy, Adv-TGD preserves high visual fidelity (PSNR = 28.18 dB, SSIM = 0.981). Furthermore, we demonstrate the flexibility of our framework by successfully extending it to in-the-wild datasets (LADN), general object classification (ImageNet), and transformer-based diffusion models (FLUX.1)."
   },
   "2607.06120v1": {
     "tags": [],
-    "venue": "未收录",
     "addedAt": "2026-07-24T01:30:00.000Z",
+    "venue": "未收录",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Yuanmin Huang",
+      "Zhenfei Zhang",
+      "Mi Zhang",
+      "Geng Hong",
+      "Qinqin He",
+      "Jialing Tao",
+      "Hui Xue",
+      "Min Yang"
+    ],
+    "abstract": "Text-to-image diffusion models have achieved high visual fidelity and broad adoption, but remain vulnerable to safety violations when adversaries exploit them to synthesize illicit content. Existing alignment paradigms, from input sanitization to structural feature pruning, are largely organized around unsafe concepts explicitly exposed during filtering, editing, or localization. This leaves a blind spot for visual synonym attacks (VSA), a jailbreak where benign-looking prompts elicit prohibited imagery through implicit visual associations. As a result, current defenses face a safety-utility dilemma: they may either under-mitigate VSA threats or over-suppress visually similar benign concepts. The core challenge is that VSA hides the unsafe target at the textual surface while revealing it through generation-time visual-semantic convergence. In this work, we therefore shift from static suppression of pre-specified unsafe concepts to dynamic tracing of how unsafe semantics emerge during generation. Our mechanistic analysis shows that VSA and explicit unsafe prompts converge through sparse semantic-injecting attention heads, which serve as inference-time bottlenecks for prohibited visual semantics. Based on this insight, we propose AEGIS (Adaptive Evasion Guard via Identification and Steering), an inference-time defense that applies similarity-aware repulsion only at the identified vulnerable heads. Evaluated against 16 baselines, AEGIS improves both safety and utility. On SD 1.4, it reduces ASR to $\\mathbf{0.00}/\\mathbf{0.03}$ for in-domain violence/nudity VSA and achieves ASRs $\\le \\mathbf{0.09}$ on out-of-domain explicit and adversarial attacks. It preserves benign fidelity, avoids suppressing hard-negative concepts, and transfers to SD 2.1 and FLUX.1 after re-identifying the critical heads for each backbone."
   },
   "2311.12908": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.684Z",
     "venue": "IEEE TPAMI",
     "year": "2024",
     "area": "图像分类",
-    "addedAt": "2026-07-24T00:55:01.684Z",
-    "directions": []
+    "doi": "10.1109/cvpr52733.2024.00786",
+    "directions": [],
+    "authors": [
+      "Bram Wallace",
+      "Meihua Dang",
+      "Rafael Rafailov",
+      "Linqi Zhou",
+      "Aaron Lou",
+      "Senthil Purushwalkam",
+      "Stefano Ermon",
+      "Caiming Xiong",
+      "Shafiq Joty",
+      "Nikhil Naik"
+    ],
+    "abstract": "Large language models (LLMs) are fine-tuned using human comparison data with Reinforcement Learning from Human Feedback (RLHF) methods to make them better aligned with users' preferences. In contrast to LLMs, human preference learning has not been widely explored in text-to-image diffusion models; the best existing approach is to fine-tune a pretrained model using carefully curated high quality images and captions to improve visual appeal and text alignment. We propose Diffusion-DPO, a method to align diffusion models to human preferences by directly optimizing on human comparison data. Diffusion-DPO is adapted from the recently developed Direct Preference Optimization (DPO), a simpler alternative to RLHF which directly optimizes a policy that best satisfies human preferences under a classification objective. We re-formulate DPO to account for a diffusion model notion of likelihood, utilizing the evidence lower bound to derive a differentiable objective. Using the Pick-a-Pic dataset of 851K crowdsourced pairwise preferences, we fine-tune the base model of the state-of-the-art Stable Diffusion XL (SDXL)-1.0 model with Diffusion-DPO. Our fine-tuned base model significantly outperforms both base SDXL-1.0 and the larger SDXL-1.0 model consisting of an additional refinement model in human evaluation, improving visual appeal and prompt alignment. We also develop a variant that uses AI feedback and has comparable performance to training on human preferences, opening the door for scaling of diffusion model alignment methods."
   },
   "2307.12499": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "ECCV",
     "year": "2024",
     "area": "图像分类",
-    "addedAt": "2026-07-24T00:55:01.690Z",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Xuelong Dai",
+      "Kaisheng Liang",
+      "Bin Xiao"
+    ],
+    "abstract": "Unrestricted adversarial attacks present a serious threat to deep learning models and adversarial defense techniques. They pose severe security problems for deep learning applications because they can effectively bypass defense mechanisms. However, previous attack methods often directly inject Projected Gradient Descent (PGD) gradients into the sampling of generative models, which are not theoretically provable and thus generate unrealistic examples by incorporating adversarial objectives, especially for GAN-based methods on large-scale datasets like ImageNet. In this paper, we propose a new method, called AdvDiff, to generate unrestricted adversarial examples with diffusion models. We design two novel adversarial guidance techniques to conduct adversarial sampling in the reverse generation process of diffusion models. These two techniques are effective and stable in generating high-quality, realistic adversarial examples by integrating gradients of the target classifier interpretably. Experimental results on MNIST and ImageNet datasets demonstrate that AdvDiff is effective in generating unrestricted adversarial examples, which outperforms state-of-the-art unrestricted adversarial attack methods in terms of attack performance and generation quality."
   },
   "2503.09124": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "NeurIPS",
     "year": "2024",
     "area": "图像分类",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.52202/079017-1659",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Jin Li",
+      "Ziqiang He",
+      "Anwei Luo",
+      "Jian-Fang Hu",
+      "Z. Jane Wang",
+      "Xiangui Kang"
+    ],
+    "abstract": "Imperceptible adversarial attacks aim to fool DNNs by adding imperceptible perturbation to the input data. Previous methods typically improve the imperceptibility of attacks by integrating common attack paradigms with specifically designed perception-based losses or the capabilities of generative models. In this paper, we propose Adversarial Attacks in Diffusion (AdvAD), a novel modeling framework distinct from existing attack paradigms. AdvAD innovatively conceptualizes attacking as a non-parametric diffusion process by theoretically exploring basic modeling approach rather than using the denoising or generation abilities of regular diffusion models requiring neural networks. At each step, much subtler yet effective adversarial guidance is crafted using only the attacked model without any additional network, which gradually leads the end of diffusion process from the original image to a desired imperceptible adversarial example. Grounded in a solid theoretical foundation of the proposed non-parametric diffusion process, AdvAD achieves high attack efficacy and imperceptibility with intrinsically lower overall perturbation strength. Additionally, an enhanced version AdvAD-X is proposed to evaluate the extreme of our novel framework under an ideal scenario. Extensive experiments demonstrate the effectiveness of the proposed AdvAD and AdvAD-X. Compared with state-of-the-art imperceptible attacks, AdvAD achieves an average of 99.9$\\%$ (+17.3$\\%$) ASR with 1.34 (-0.97) $l_2$ distance, 49.74 (+4.76) PSNR and 0.9971 (+0.0043) SSIM against four prevalent DNNs with three different architectures on the ImageNet-compatible dataset. Code is available at https://github.com/XianguiKang/AdvAD."
   },
   "2412.09910": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "CVPR",
     "year": "2025",
     "area": "医学影像",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.1109/cvpr52734.2025.02660",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Yasamin Medghalchi",
+      "Moein Heidari",
+      "Clayton Allard",
+      "Leonid Sigal",
+      "Ilker Hacihaliloglu"
+    ],
+    "abstract": "Deep neural networks (DNNs) offer significant promise for improving breast cancer diagnosis in medical imaging. However, these models are highly susceptible to adversarial attacks--small, imperceptible changes that can mislead classifiers--raising critical concerns about their reliability and security. Traditional attacks rely on fixed-norm perturbations, misaligning with human perception. In contrast, diffusion-based attacks require pre-trained models, demanding substantial data when these models are unavailable, limiting practical use in data-scarce scenarios. In medical imaging, however, this is often unfeasible due to the limited availability of datasets. Building on recent advancements in learnable prompts, we propose Prompt2Perturb (P2P), a novel language-guided attack method capable of generating meaningful attack examples driven by text instructions. During the prompt learning phase, our approach leverages learnable prompts within the text encoder to create subtle, yet impactful, perturbations that remain imperceptible while guiding the model towards targeted outcomes. In contrast to current prompt learning-based approaches, our P2P stands out by directly updating text embeddings, avoiding the need for retraining diffusion models. Further, we leverage the finding that optimizing only the early reverse diffusion steps boosts efficiency while ensuring that the generated adversarial examples incorporate subtle noise, thus preserving ultrasound image quality without introducing noticeable artifacts. We show that our method outperforms state-of-the-art attack techniques across three breast ultrasound datasets in FID and LPIPS. Moreover, the generated images are both more natural in appearance and more effective compared to existing adversarial attacks. Our code will be publicly available https://github.com/yasamin-med/P2P."
   },
   "2506.01511": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "NeurIPS",
     "year": "2025",
     "area": "图像分类",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.52202/085713-5597",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Kaixun Jiang",
+      "Zhaoyu Chen",
+      "Haijing Guo",
+      "Jinglun Li",
+      "Jiyuan Fu",
+      "Pinxue Guo",
+      "Hao Tang",
+      "Bo Li",
+      "Wenqiang Zhang"
+    ],
+    "abstract": "Preference alignment in diffusion models has primarily focused on benign human preferences (e.g., aesthetic). In this paper, we propose a novel perspective: framing unrestricted adversarial example generation as a problem of aligning with adversary preferences. Unlike benign alignment, adversarial alignment involves two inherently conflicting preferences: visual consistency and attack effectiveness, which often lead to unstable optimization and reward hacking (e.g., reducing visual quality to improve attack success). To address this, we propose APA (Adversary Preferences Alignment), a two-stage framework that decouples conflicting preferences and optimizes each with differentiable rewards. In the first stage, APA fine-tunes LoRA to improve visual consistency using rule-based similarity reward. In the second stage, APA updates either the image latent or prompt embedding based on feedback from a substitute classifier, guided by trajectory-level and step-wise rewards. To enhance black-box transferability, we further incorporate a diffusion augmentation strategy. Experiments demonstrate that APA achieves significantly better attack transferability while maintaining high visual consistency, inspiring further research to approach adversarial attacks from an alignment perspective. Code will be available at https://github.com/deep-kaixun/APA."
   },
   "2510.22981": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "NeurIPS",
     "year": "2025",
     "area": "图像分类",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.52202/085713-3433",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Jin Hu",
+      "Jiakai Wang",
+      "Linna Jing",
+      "Haolin Li",
+      "Haodong Liu",
+      "Haotong Qin",
+      "Aishan Liu",
+      "Ke Xu",
+      "Xianglong Liu"
+    ],
+    "abstract": "Recently, semantically constrained adversarial examples (SemanticAE), which are directly generated from natural language instructions, have become a promising avenue for future research due to their flexible attacking forms. To generate SemanticAEs, current methods fall short of satisfactory attacking ability as the key underlying factors of semantic uncertainty in human instructions, such as referring diversity, descriptive incompleteness, and boundary ambiguity, have not been fully investigated. To tackle the issues, this paper develops a multi-dimensional instruction uncertainty reduction (InSUR) framework to generate more satisfactory SemanticAE, i.e., transferable, adaptive, and effective. Specifically, in the dimension of the sampling method, we propose the residual-driven attacking direction stabilization to alleviate the unstable adversarial optimization caused by the diversity of language references. By coarsely predicting the language-guided sampling process, the optimization process will be stabilized by the designed ResAdv-DDIM sampler, therefore releasing the transferable and robust adversarial capability of multi-step diffusion models. In task modeling, we propose the context-encoded attacking scenario constraint to supplement the missing knowledge from incomplete human instructions. Guidance masking and renderer integration are proposed to regulate the constraints of 2D/3D SemanticAE, activating stronger scenario-adapted attacks. Moreover, in the dimension of generator evaluation, we propose the semantic-abstracted attacking evaluation enhancement by clarifying the evaluation boundary, facilitating the development of more effective SemanticAE generators. Extensive experiments demonstrate the superiority of the transfer attack performance of InSUR. Moreover, we realize the reference-free generation of semantically constrained 3D adversarial examples for the first time."
   },
   "2307.08076": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "ICIP",
     "year": "2025",
     "area": "目标检测",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.1109/icip55913.2025.11084754",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Shuo-Yen Lin",
+      "Ernie Chu",
+      "Che-Hsien Lin",
+      "Jun-Cheng Chen",
+      "Jia-Ching Wang"
+    ],
+    "abstract": "Many physical adversarial patch generation methods are widely proposed to protect personal privacy from malicious monitoring using object detectors. However, they usually fail to generate satisfactory patch images in terms of both stealthiness and attack performance without making huge efforts on careful hyperparameter tuning. To address this issue, we propose a novel naturalistic adversarial patch generation method based on the diffusion models (DM). Through sampling the optimal image from the DM model pretrained upon natural images, it allows us to stably craft high-quality and naturalistic physical adversarial patches to humans without suffering from serious mode collapse problems as other deep generative models. To the best of our knowledge, we are the first to propose DM-based naturalistic adversarial patch generation for object detectors. With extensive quantitative, qualitative, and subjective experiments, the results demonstrate the effectiveness of the proposed approach to generate better-quality and more naturalistic adversarial patches while achieving acceptable attack performance than other state-of-the-art patch generation methods. We also show various generation trade-offs under different conditions."
   },
   "2410.08453": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "IROS",
     "year": "2024",
     "area": "自动驾驶",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.1109/iros58592.2024.10802408",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Yuting Xie",
+      "Xianda Guo",
+      "Cong Wang",
+      "Kunhua Liu",
+      "Long Chen"
+    ],
+    "abstract": "Safety-critical scenarios are infrequent in natural driving environments but hold significant importance for the training and testing of autonomous driving systems. The prevailing approach involves generating safety-critical scenarios automatically in simulation by introducing adversarial adjustments to natural environments. These adjustments are often tailored to specific tested systems, thereby disregarding their transferability across different systems. In this paper, we propose AdvDiffuser, an adversarial framework for generating safety-critical driving scenarios through guided diffusion. By incorporating a diffusion model to capture plausible collective behaviors of background vehicles and a lightweight guide model to effectively handle adversarial scenarios, AdvDiffuser facilitates transferability. Experimental results on the nuScenes dataset demonstrate that AdvDiffuser, trained on offline driving logs, can be applied to various tested systems with minimal warm-up episode data and outperform other existing methods in terms of realism, diversity, and adversarial performance."
   },
   "2501.08246": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "AAAI",
     "year": "2025",
     "area": "LLM",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.1609/aaai.v39i26.34967",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Jonathan Nöther",
+      "Adish Singla",
+      "Goran Radanović"
+    ],
+    "abstract": "Recent work has proposed automated red-teaming methods for testing the vulnerabilities of a given target large language model (LLM). These methods use red-teaming LLMs to uncover inputs that induce harmful behavior in a target LLM. In this paper, we study red-teaming strategies that enable a targeted security assessment. We propose an optimization framework for red-teaming with proximity constraints, where the discovered prompts must be similar to reference prompts from a given dataset. This dataset serves as a template for the discovered prompts, anchoring the search for test-cases to specific topics, writing styles, or types of harmful behavior. We show that established auto-regressive model architectures do not perform well in this setting. We therefore introduce a black-box red-teaming method inspired by text-diffusion models: Diffusion for Auditing and Red-Teaming (DART). DART modifies the reference prompt by perturbing it in the embedding space, directly controlling the amount of change introduced. We systematically evaluate our method by comparing its effectiveness with established methods based on model fine-tuning and zero- and few-shot prompting. Our results show that DART is significantly more effective at discovering harmful inputs in close proximity to the reference prompt."
   },
   "ResolutionAttack_ICLR2025": {
     "tags": [],
@@ -187,31 +362,61 @@
   },
   "DiffScene_AAAI2025": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "AAAI",
     "year": "2025",
     "area": "自动驾驶",
-    "addedAt": "2026-07-24T00:55:01.690Z",
-    "directions": []
+    "doi": "10.1609/aaai.v39i8.32951",
+    "directions": [],
+    "authors": [
+      "Chejian Xu",
+      "Aleksandr Petiushko",
+      "Zhao Ding",
+      "Bo Li"
+    ],
+    "abstract": "The field of Autonomous Driving (AD) has witnessed significant progress in recent years. Among the various challenges faced, the safety evaluation of autonomous vehicles (AVs) stands out as a critical concern. Traditional evaluation methods are both costly and inefficient, often requiring extensive driving mileage in order to encounter rare safety-critical scenarios, which are distributed on the long tail of the complex real-world driving landscape. In this paper, we propose a unified approach, Diffusion-Based Safety-Critical Scenario Generation (DiffScene), to generate high-quality safety-critical scenarios which are both realistic and safety-critical for efficient AV evaluation. In particular, we propose a diffusion-based generation framework, leveraging the power of approximating the distribution of low-density spaces for diffusion models. We design several adversarial optimization objectives to guide the diffusion generation under predefined adversarial budgets. These objectives, such as safety-based objective, functionality-based objective, and constraint-based objective, ensure the generation of safety-critical scenarios while adhering to specific constraints. Extensive experimentation has been conducted to validate the efficacy of our approach. Compared with 6 SOTA baselines, DiffScene generates scenarios that are (1) more safety-critical under 3 metrics, (2) more realistic under 5 distance functions, and (3) more transferable to different AV algorithms. In addition, we demonstrate that training AV algorithms with scenarios generated by DiffScene leads to significantly higher performance in terms of the safety-critical metrics compared to baselines. These findings highlight the potential of DiffScene in addressing the challenges of AV safety evaluation, paving the way for safer AV development."
   },
   "ObjectAdv_AAAI2026": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "AAAI",
     "year": "2026",
     "area": "图像分类",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.48448/z5qp-3f61",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Association for Artificial Intelligence 2026",
+      "Haoqi Gao",
+      "Zhenyu Liang",
+      "Anjie Peng",
+      "Xing Yang",
+      "Hui Zeng",
+      "Shijie Zhao"
+    ],
+    "abstract": "Unrestricted adversarial attacks aim to fool DNNs by generating effective yet photorealistic examples. However, previous methods usually rely on global perturbations to enhance attack performance, which inevitably introduces visual distortions. To reduce visual distortions in the background, we propose a diffusion-based framework that focuses on local perturbations to generate object-level unrestricted adversarial examples (ObjectAdv). Since the cross-attention maps of Stable Diffusion contain the object information, we directly leverage the attention maps to localize the semantic region of object where for attacking. Second, a prompt-switching strategy is proposed for both imperceptibility and attack capacity. Specifically, to preserve layout and object shape of clean image, a prompt of true category is used at early denoising steps. At the later steps, we propose a well-designed prompt to guide the diffusion model to generate transferable adversarial examples. This local attack may cause inconsistency between the perturbed object and the background in adversarial examples. An FFT-based edge smoother is utilized to ensure seamless blending of the edges. ObjectAdv achieves an average ASR of 99.2% in white-box test on the ImageNet-compatible dataset, and outperforms existing methods on defense performance (+5%) and image quality metrics, e.g., SSIM of 0.9140 (+0.1048) and FID of 25.63 (-19.27)."
   },
   "Diff-NAT_AAAI2026": {
     "tags": [],
+    "addedAt": "2026-07-24T00:55:01.690Z",
     "venue": "AAAI",
     "year": "2026",
     "area": "目标检测",
-    "addedAt": "2026-07-24T00:55:01.690Z",
+    "doi": "10.1609/aaai.v40i14.38137",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Qinglong Yan",
+      "Tong Zou",
+      "Xunpeng Yi",
+      "Xinyu Xiang",
+      "Xuying Wu",
+      "Hao Y. Zhang",
+      "Jiayi Ma"
+    ],
+    "abstract": "Recent advances in naturalistic physical adversarial patch generation show great promise in protecting personal privacy against detector-based malicious surveillance while remaining inconspicuous to human observers. In this work, we present the first systematic categorization and in-depth re-examination of existing methods into three representative paradigms, revealing a pervasive imbalance: enforcing naturalness constraints inherently restricts the adversarial search space, thus limiting attack performance. To address this challenge, we propose a novel paradigm based on class-optimized diffusion, termed Diff-NAT. Diff-NAT leverages pretrained diffusion models as powerful natural image priors and introduces a unified iterative framework that jointly optimizes two complementary components: semantic-level textual prompts and instance-level latent codes. Specifically, prompt optimization enables broad traversal across inter-class semantic regions, while latent refinement allows for fine-grained manipulation within class objectives. This dual-level optimization facilitates progressive navigation toward adversarial distributions embedded within the natural semantic manifold. Extensive experiments in both digital and physical settings demonstrate that Diff-NAT outperforms existing SOTA approaches in terms of both visual realism and aggressiveness."
   },
   "2312.11285": {
     "tags": [],
@@ -219,9 +424,19 @@
     "venue": "AAAI",
     "year": "2024",
     "area": "计算机视觉",
+    "doi": "10.1609/aaai.v38i4.28147",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Decheng Liu",
+      "Xijun Wang",
+      "Chunlei Peng",
+      "Nannan Wang",
+      "Ruiming Hu",
+      "Xinbo Gao"
+    ],
+    "abstract": "Adversarial attacks involve adding perturbations to the source image to cause misclassification by the target model, which demonstrates the potential of attacking face recognition models. Existing adversarial face image generation methods still can't achieve satisfactory performance because of low transferability and high detectability. In this paper, we propose a unified framework Adv-Diffusion that can generate imperceptible adversarial identity perturbations in the latent space but not the raw pixel space, which utilizes strong inpainting capabilities of the latent diffusion model to generate realistic adversarial images. Specifically, we propose the identity-sensitive conditioned diffusion generative model to generate semantic perturbations in the surroundings. The designed adaptive strength-based adversarial perturbation algorithm can ensure both attack transferability and stealthiness. Extensive qualitative and quantitative experiments on the public FFHQ and CelebA-HQ datasets prove the proposed method achieves superior performance compared with the state-of-the-art methods without an extra generative model training process. The source code is available at https://github.com/kopper-xdu/Adv-Diffusion."
   },
   "2606.26566v1": {
     "tags": [],
@@ -231,27 +446,53 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Abrar Alotaibi",
+      "Moataz Ahmed"
+    ],
+    "abstract": "Adversarial evaluation of AI systems has matured along four largely disconnected tracks: diffusion-based attacks on text and large language models (LLMs), diffusion-based attacks on image classifiers, jailbreak pipelines against vision-language models, and diffusion-based input purification defenses. Each has developed its own vocabulary, threat models, and benchmarks, with denoising diffusion models emerging as a shared generative mechanism whose recipes are now actively ported between communities. This survey performs an information-fusion exercise at the meta-research level: we integrate these four tracks into a single conceptual framework with a unified taxonomy, evaluation criteria, and research agenda, focusing on the LLM-side slice. We catalog fifty published papers across four scope areas (text/LLM, image classifier, vision-language model, defense), plus four diffusion-LLM-as-victim entries and ten non-diffusion baselines against which any new attack must be compared. We propose a six-class taxonomy of diffusion roles in adversarial pipelines, augmented by a threat-model axis recording attacker knowledge, query budget, and target accessibility, and apply a five-dimension framework (attack success rate, transferability, query budget, perplexity, defense-evasion) uniformly across modalities. The review adopts a dual attacker-defender perspective: alongside the attack catalog we cover four diffusion-based defenses that form the natural evaluation backdrop for new attacks. Our critical analysis identifies five recurring weaknesses of the current LLM-side literature, and we close with a research agenda of open questions and concrete experimental designs. The companion catalog and spreadsheet are released with the paper. We are explicit that this is a narrative review with quality assessment, not a PRISMA-compliant systematic review, and discuss the implications for replication."
   },
   "2606.20717v1": {
     "tags": [],
     "addedAt": "2026-08-05T02:10:26.503Z",
+    "venue": "",
     "year": "2026",
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
+    "doi": "",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Xuelong Dai",
+      "Jianyu Ma",
+      "Boyang Ma",
+      "Biwei Yan",
+      "Yijun Yang",
+      "Yue Zhang"
+    ],
+    "abstract": "Multimodal Large Language Model (MLLM)-based web agents provide practical, high-precision solutions for visual browser automation; however, they inherently expand the attack surface, introducing novel vision-based vulnerabilities. Existing adversarial evaluations targeting these agents frequently rely on permissive threat models and visually conspicuous artifacts. In this paper, we investigate a constrained vulnerability detection setting: a trusted web platform where the evaluator acts solely as an unprivileged third party, such as a merchant or advertiser, controlling only a semantically legitimate, spatially constrained region, such as an ad slot, a sponsored card, or a localized widget. Operating under these realistic constraints, we propose MIRAGE, a novel visual indirect prompt injection framework for targeted next-action hijacking. Our approach leverages diffusion models to generate perceptually benign adversarial images strictly confined to the attacker-controlled boundaries permitted by the trusted service provider. To maximize attack efficacy within such a restrictive setting, we introduce a robust optimization technique combining curvature-aware adversarial diffusion guidance with sparse, dark-pixel residual perturbations. Comprehensive evaluations against prominent MLLM web agent frameworks, specifically SeeAct and OpenClaw, empirically demonstrate the potency, realism, and stealth of our proposed MIRAGE."
   },
   "2605.29809v1": {
     "tags": [],
     "addedAt": "2026-08-05T02:11:23.031Z",
-    "year": "2026",
+    "venue": "",
+    "year": "2025",
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
+    "doi": "",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Leyi Qi",
+      "Yiming Li",
+      "Siyuan Liang",
+      "Zhengzhong Tu",
+      "Dacheng Tao"
+    ],
+    "abstract": "Large-scale text-to-image (T2I) diffusion models have enabled unprecedented creative applications, but their unauthorized use has raised serious intellectual property concerns, making model ownership verification (MOV) increasingly critical. We find that existing backdoor-based diffusion watermarking methods often (implicitly) assume a \"faithful\" verification process, namely, that the verifier can query a suspicious model and obtain the faithful watermark response to complete MOV. However, in practice, adversaries may intentionally or unintentionally damage potential watermark signals, significantly degrading verification reliability. To address this issue, we propose Cert-LAS, the first certified MOV method for T2I models based on layer-adaptive smoothing. In general, Cert-LAS embeds specified watermarks using diffusion classifiers and an LFS-guided layer-adaptive noise, and verifies ownership by examining whether the suspected model exhibits significantly stronger watermark responses compared to unwatermarked references through hypothesis testing. We further prove that, under certain conditions, our Cert-LAS can still achieve reliable verification even in the presence of malicious removal attacks. Extensive experiments validate the effectiveness of Cert-LAS and its resistance to adaptive attacks. Our code is available at https://github.com/Leyi-Qi/Cert-LAS."
   },
   "2605.26332v1": {
     "tags": [],
@@ -261,7 +502,14 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Arian Komaei Koma",
+      "Seyed Amir Kasaei",
+      "AmirMahdi Sadeghzadeh",
+      "Mohammad Hossein Rohban"
+    ],
+    "abstract": "Machine unlearning aims to remove specific concepts from pretrained text-to-image diffusion models, yet several white- and black-box attacks have been introduced to make the model generate such unlearned concepts. These attacks, nevertheless, do not assume a realistic threat model, i.e. they either assume access to the model weights, or result in gibberish adversarial prompts that could be easily detected even through naive rule-based safeguarding. We aim to address this gap in this paper.\n  We introduce BEAP, a black-box, embedding-aware adversarial prompting attack that leverages a large language model (LLM) to iteratively generate effective adversarial prompts and exploit such hidden vulnerabilities.\n  BEAP performs an embedding-aware search in text space, combining multiple reward signals: unlearned concept presence, text-image alignment, and image quality, to refine generated prompts.\n  Unlike previous attack methods, BEAP keeps its prompts undetectable to safety filters while producing high-quality images.\n  Extensive experiments show that BEAP improves the Attack Success Rate (ASR) by more than 60% over prior methods, while requiring only an average of fifteen prompts per successful attack. Warning: This paper contains model outputs that may be offensive or upsetting in nature."
   },
   "2607.28936v1": {
     "tags": [],
@@ -271,7 +519,12 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Omid Ahmadieh",
+      "Nima Karimian"
+    ],
+    "abstract": "Facial biometric identification relies on the distinctiveness of user attributes within a high-dimensional embedding space. However, the decision boundaries of deep face recognition (FR) systems are often sufficiently narrow that they can be conflated, rendering the models vulnerable to adversarial attacks. In such scenarios, the FR system fails to distinguish between an authentic source and a meticulously crafted adversarial face. Existing adversarial methods targeting facial biometrics are limited in both performance and their ability to generate high-quality images that are imperceptible to humans. Moreover, these methods often fail when the source and target images belong to different demographic groups or genders. To address these limitations, we present a novel approach for adversarial face generation via latent-space optimization. We leverage latent diffusion models directly to guide generation toward target identity embeddings, as measured by a face recognition model. Our proposed \\textbf{DiffAttack} framework has been evaluated on standard benchmarks, such as the FFHQ and CelebA-HQ datasets. DiffAttack significantly outperforms existing adversarial techniques, achieving a high average attack success rate of 84.86% across multiple face recognition models (e.g., FaceNet). Notably, DiffAttack demonstrates superior transferability, surpassing traditional noise-based methods by over 15.28% and semantic-based approaches by approximately 5.21% on benchmark datasets like FFHQ and CelebA-HQ."
   },
   "2607.25894v1": {
     "tags": [],
@@ -281,17 +534,42 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Xia Du",
+      "Zhuosen Bao",
+      "Zheng Lin",
+      "Jizhe Zhou",
+      "Jiawei Lian",
+      "Chi-man Pun",
+      "Jun Luo",
+      "Wei Ni",
+      "Symeon Chatzinotas"
+    ],
+    "abstract": "Recent diffusion models have achieved remarkable realism in facial image synthesis, posing growing challenges to artificial intelligence-generated content (AIGC) forensic detectors.Existing evasion methods typically perturb pre-generated images or require detector-aware training, which may introduce visible or statistical artifacts and limit applicability when the diffusion model must remain frozen and the target detector is accessible only through black-box queries. We propose Trajectory-Injected Generative Attack (TIGA), a source-image-free and training free framework that generates detector-evasive images within a single diffusion sampling trajectory. TIGA steers the latent Denoising Diffusion Implicit Model (DDIM) trajectory so that adversarial properties emerge during generation rather than being added afterward. TIGA first aggregates gradients from multiple white-box surrogate detectors to form a transferable, sign-aware prior, and then performs anisotropic directional search with symmetric finite-difference queries to estimate the black-box target response. The estimated directions are stabilized by decayed momentum and injected according to the DDIM noise schedule, with frequency-domain reshaping to suppress high frequency artifacts. Experiments on surrogate and unseen specialized forensic detectors show that TIGA achieves strong blackbox attack performance, transferability, and high robustness under common post-processing operations without source images or diffusion-model retraining, while preserving high perceptual quality."
   },
   "2607.01305v1": {
     "tags": [],
     "addedAt": "2026-08-05T02:18:25.422Z",
-    "year": "2026",
+    "venue": "2025 16th International Conference on Information and Communication Technology Convergence (ICTC)",
+    "year": "2025",
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
+    "doi": "10.1109/ictc66702.2025.11388600",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Jiefei Liu",
+      "Abu Saleh Md Tayeen",
+      "Pratyay Kumar",
+      "Qixu Gong",
+      "Wenbin Jiang",
+      "Huiping Cao",
+      "Satyajayant Misra",
+      "Jayashree Harikumar"
+    ],
+    "abstract": "Intrusion Detection Systems (IDSs) are essential for monitoring network traffic and identifying malicious activities in modern cyber-physical, Internet of Things (IoT), enterprise, and distributed network environments. However, developing reliable IDS models remains challenging because attack behaviors evolve over time, realistic datasets are difficult to obtain, traffic records may be incomplete, attack classes are often imbalanced, and privacy constraints limit centralized data collection. Recent advances in generative artificial intelligence (AI) and Federated Learning (FL) provide new opportunities to address these limitations. Generative models can support anomaly detection, synthetic traffic generation, data augmentation, data imputation, adversarial traffic generation, and IDS alert explanation. FL enables distributed IDS training without directly sharing local network traffic, making it suitable for privacy-sensitive and geographically distributed environments. This survey provides a structured review of generative AI and FL techniques for IDS. We first summarize representative IDS research directions, including adversarial machine learning, anomaly-based detection, IoT-oriented IDS, explainable IDS, and benchmark datasets. We then categorize generative AI applications in IDS according to model families and task objectives, covering autoencoder-based models, Generative Adversarial Networks (GANs), diffusion models, and Large Language Models (LLMs). Finally, we review emerging studies that integrate generative AI with FL-based IDS and discuss open challenges, including synthetic data quality, realistic traffic generation, dual-use adversarial risks, non-IID client distributions, communication-efficient model sharing, federated IDS benchmarking, and domain-specific LLMs for network security."
   },
   "2606.29801v1": {
     "tags": [],
@@ -301,17 +579,38 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Yoonseok Choi",
+      "Chaeyoung Oh",
+      "Hyunjun Choi",
+      "Seokin Seo",
+      "Kee-Eung Kim"
+    ],
+    "abstract": "Text-to-image diffusion models remain vulnerable to adversarial prompts that elicit disallowed content, motivating reliable inference-time controls. A popular approach is negative guidance, which subtracts a negative prompt direction with a fixed weight. However, it often forces a safety-fidelity trade-off, causing artifacts or prompt drift when over-applied and failing under attacks when under-applied. Dynamic variants reweight guidance using posterior-odds signals, which can be brittle for open-vocabulary compositional prompts, while lightweight similarity-based methods ignore the evolving image evidence along the denoising trajectory. We introduce Concept Removal Guidance (CRG), a training-free method that estimates unwanted-concept presence at each diffusion step from the model's noise predictions, and adaptively calibrates negative guidance via a closed-form constrained update enforcing a target presence threshold while minimally perturbing the conditional trajectory. Across red-teaming benchmarks, CRG reduces attack success rates while preserving benign fidelity, and extends to additional suppression targets such as artist style and violence without fine-tuning or external classifiers."
   },
   "2605.15246v1": {
     "tags": [],
     "addedAt": "2026-08-05T02:20:01.079Z",
+    "venue": "2026 27th IEEE International Conference on Mobile Data Management (MDM)",
     "year": "2026",
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
+    "doi": "10.1109/mdm71479.2026.00074",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Stavros Bouras",
+      "Ioannis Kontopoulos",
+      "Chiara Pugliese",
+      "Francesco Lettich",
+      "Emanuele Carlini",
+      "Hanna Kavalionak",
+      "Chiara Renso",
+      "Konstantinos Tserpes"
+    ],
+    "abstract": "Trajectory data is fundamental to modern urban intelligence, yet its sensitivity raises significant privacy concerns. Generative models such as Generative Adversarial Networks, Variational Autoencoders, and Diffusion Models have been developed to generate realistic synthetic trajectory data by capturing underlying spatiotemporal distributions and mobility patterns. Although these models are often assumed to preserve privacy due to their generative nature, this assumption does not necessarily hold. In this work, we investigate the intersection of generative trajectory modeling and privacy evaluation. By identifying applicable empirical methods for assessing privacy preservation in trajectory generation tasks, we demonstrate a significant gap in the evaluation of privacy for generative trajectory models. Motivated by this gap, we implement Membership Inference Attacks against representative models, demonstrating the feasibility of using such empirical privacy evaluation methods and showing that their generative nature does not eliminate privacy risks."
   },
   "2605.14396v1": {
     "tags": [],
@@ -321,7 +620,18 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Chenyi Wang",
+      "Ruoyu Song",
+      "Raymond Muller",
+      "Jean-Philippe Monteuuis",
+      "Jonathan Petit",
+      "Z. Berkay Celik",
+      "Ryan Gerdes",
+      "Ming F. Li"
+    ],
+    "abstract": "Autonomous vehicles depend on online HD map construction to perceive lane boundaries, dividers, and pedestrian crossings -- safety-critical road elements that directly govern motion planning. While existing pixel perturbation attacks can disrupt the mapping, they can be neutralized by standard adversarial defenses. We present MIRAGE, a framework for systematic discovery of semantic attacks that bypass adversarial defenses and degrade mapping predictions by finding plausible environmental variation (e.g. shadows, wet roads). MIRAGE exploits the latent manifold of real-world data learned by diffusion models, and searches for semantically mutated scenes neighboring the ground truth with the same road topology yet mislead the mapping predictions. We evaluate MIRAGE on nuScenes and demonstrate two attacks: (1) boundary removal, suppressing 57.7% of detections and corrupting 96% of planned trajectories; and (2) boundary injection, the only method that successfully injects fictitious boundaries, while pixel PGD and AdvPatch fail entirely. Both attacks remain potent under various adversarial defenses. We use two independent VLM judges to quantify realism, where MIRAGE passes as realistic 80--84% of the time (vs. 97--99% for clean nuScenes), while AdvPatch only 0--9%. Our findings expose a categorical gap in current adversarial defenses: semantic-level perturbations that manifest as legitimate environmental variation are substantially harder to mitigate than pixel-level perturbations."
   },
   "2605.09319v1": {
     "tags": [],
@@ -331,7 +641,13 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Minh Quoc Duong",
+      "Chun Tong Lei",
+      "Chun Pong Lau"
+    ],
+    "abstract": "With the proliferation of AI-generated images, digital watermarking has become an essential safeguard for protecting intellectual property and mitigating malicious exploitation. Recent works on semantic watermarking have enabled efficient copyright protection for diffusion models. However, the dependence of semantic watermarking on diffusion inversion for watermark detection creates a critical vulnerability. Imprint removal and forgery attacks exploit this weakness to produce deceptive results. Our analysis reveals that these attacks succeed by displacing watermarked latents into the unwatermarked region, while guiding unwatermarked latents into the watermarked region. Based on that, we propose Progressive Guided Inversion and Denoising (PGID), the first plug-and-play, training-free noise extraction framework designed to defend against both attack strategies. PGID effectively defends by projecting perturbed latents back to the region where they originally belong. The projection is achieved by eliminating intermediate latent deflections and mitigating adversarial perturbations through progressive inversion-denoising cycles. Comprehensive evaluations across multiple schemes demonstrate that PGID successfully restores detection reliability by recovering removed watermarks and identifying forged instances."
   },
   "2605.08440v1": {
     "tags": [],
@@ -341,7 +657,12 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Daniel Wesego",
+      "Pedram Rooshenas"
+    ],
+    "abstract": "Adversarial purification with diffusion models seeks to project adversarial examples back toward the data manifold, but balancing semantic preservation and robustness against adaptive attacks remains challenging. Recent work shows that standard diffusion purification can fail under adaptive evaluation, while test-time score-based optimization is more resilient. Existing optimization defenses, however, typically rely on a single diffusion noise regime or treat timesteps uniformly, overlooking the distinct roles of coarse and fine denoising scales. We propose Temporal Adversarial Rectification Optimization (TARO), an inference-time purification method that builds a temporally guided score prior from multiple denoising views along the diffusion trajectory. TARO forms a coarse-to-fine residual target: high-noise experts provide globally smoothed structure with reduced adversarial sensitivity, while low-noise experts restore image-specific, class-relevant details. A guidance strength controls this temporal correction, allowing TARO to balance robust global rectification with semantic preservation. Empirically, TARO improves robust accuracy across datasets and adaptive threat models in a zero-shot setting, while remaining compatible with complementary adversarial-likelihood objectives for further robustness gains."
   },
   "2605.06835v1": {
     "tags": [],
@@ -351,7 +672,18 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Masoumeh Shafieinejad",
+      "D. B. Emerson",
+      "Behnoosh Zamanlooy",
+      "Elaheh Bassak",
+      "Fatemeh Tavakoli",
+      "Sara Kodeiri",
+      "Marcelo Lotif",
+      "Xi He"
+    ],
+    "abstract": "Tabular data plays an important role in many fields and industries, including those with elevated privacy considerations and risks. As such, there is a rising interest in generating high-quality synthetic proxies for real tabular data as a means of reducing privacy risk and proprietary data exposure. With tabular diffusion models (TDMs) demonstrating leading performance in synthesizing such data, understanding and measuring the privacy risks associated with these models is imperative. Leveraging state-of-the-art membership inference attacks for TDMs in both black- and white-box settings, this work quantifies the impact of training setup, synthesis choices, and attacker knowledge on privacy leakage. Moreover, the results demonstrate that adversaries need not have perfect knowledge of the training setup, identical data distributions, or massive compute resources to construct successful attacks. Finally, the pitfalls associated with applying heuristic privacy metrics, such as distance-to-closest record, are revealed."
   },
   "2605.01113v1": {
     "tags": [],
@@ -361,7 +693,15 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Chi Zhang",
+      "Changjia Zhu",
+      "Xiaowen Li",
+      "Yao Liu",
+      "Zhuo Lu"
+    ],
+    "abstract": "Text-to-image (T2I) diffusion models have the ability to build high-quality pictures from text prompts, but they pose safety concerns because they can generate offensive or disturbing imagery when provided with harmful inputs. Existing safety filters typically rely on text-based classifiers or image-based checkers that completely block the output upon detecting a threat, issuing an explicit allow/block feedback signal to the user. This binary strategy leaves models vulnerable to adversarial attacks that alter keywords to bypass detection, and it causes high false-alarm rates that degrade the experience for benign users. To address such vulnerabilities, we propose Disciplined Diffusion (DDiffusion), a novel robust text-to-image diffusion that counters Not Safe For Work (NSFW) generation by uncovering implicit malicious semantics in prompt embeddings. DDiffusion leverages a semantic retrieval mechanism to evaluate prompts against concept distributions rather than relying on brittle pairwise similarity. Furthermore, it employs a localization method during the diffusion process to selectively edit only the harmful regions of the generated image. By returning locally sanitized images instead of applying uniform blocking, DDiffusion suppresses malicious content while preserving generation fidelity for benign prompts and avoiding the binary allow-deny signal on which existing probing attacks rely."
   },
   "2605.00935v1": {
     "tags": [],
@@ -371,25 +711,51 @@
     "source": "arxiv-auto",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "An Huang",
+      "Junggab Son",
+      "Zuobin Xiong"
+    ],
+    "abstract": "Diffusion models have become the foundation of modern generative systems, with most research focusing primarily on improving generation efficiency and output quality. The timestep embedding component is a crucial part of the diffusion pipeline, which provides a temporal conditioning signal to the denoising network, enabling it to adapt its predictions across different noise levels throughout the process. Despite their potential to contain substantial information, timestep embeddings remain underexplored in current research, especially for security risks and reliable provenance. To fill this gap, we introduce Shadow Timestep Embedding (STE), a novel mechanism that investigates the underutilized temporal space for malicious information injection into diffusion models. In particular, when zooming in on the timestep embedding space, we find that different timesteps exhibit distinct representational capabilities that can encode side-channel information. Moreover, such encoded information can be utilized for attack and defense purposes through the scheduler interface. We present a theoretical analysis of timestep embeddings as position-encoding mappings and derive a mutual coherence evaluation that explains the separability of disjoint timestep intervals. Our findings reveal the diffusion model's timestep as a powerful side channel for carrying dedicated information, motivating new directions for adversarial generative modeling by understanding the temporal dimension."
   },
   "sciverse-1c23c8a9a8d8ad07d599d27aee7b17b72fc1ec41a88c459c6a8aaf71479059a5": {
     "tags": [],
     "addedAt": "2026-08-13T02:20:18.103Z",
-    "year": "2024",
+    "venue": "2025 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)",
+    "year": "2025",
     "source": "sciverse",
     "sourceId": "1c23c8a9a8d8ad07d599d27aee7b17b72fc1ec41a88c459c6a8aaf71479059a5",
-    "doi": "arXiv:2412.15341",
-    "directions": []
+    "doi": "10.1109/cvpr52734.2025.01735",
+    "directions": [],
+    "authors": [
+      "Reza Shirkavand",
+      "Peng Yu",
+      "Shangqian Gao",
+      "Gowthami Somepalli",
+      "Tom Goldstein",
+      "Heng Huang"
+    ],
+    "abstract": "Recent advances in diffusion generative models have yielded remarkable progress. While the quality of generated content continues to improve, these models have grown considerably in size and complexity. This increasing computational burden poses significant challenges, particularly in resource-constrained deployment scenarios such as mobile devices. The combination of model pruning and knowledge distillation has emerged as a promising solution to reduce computational demands while preserving generation quality. However, this technique inadvertently propagates undesirable behaviors, including the generation of copyrighted content and unsafe concepts, even when such instances are absent from the fine-tuning dataset. In this paper, we propose a novel bilevel optimization framework for pruned diffusion models that consolidates the fine-tuning and unlearning processes into a unified phase. Our approach maintains the principal advantages of distillation—namely, efficient convergence and style transfer capabilities—while selectively suppressing the generation of unwanted content. This plug-in framework is compatible with various pruning and concept unlearning methods, facilitating efficient, safe deployment of diffusion models in controlled environments. Code is available here."
   },
   "2604.22084v1": {
     "tags": [],
     "addedAt": "2026-08-16T12:36:56.788Z",
-    "year": "2026",
+    "venue": "IEEE Access, vol. 13, pp. 59725-59736, 2025",
+    "year": "2025",
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
     "sourceId": "2604.22084",
-    "directions": []
+    "doi": "10.1109/ACCESS.2025.3556704",
+    "directions": [],
+    "authors": [
+      "Tiffany Bao",
+      "Kylie Trousil",
+      "Quang Duy Tran",
+      "Fabio Di Troia",
+      "Younghee Park"
+    ],
+    "abstract": "Malware attacks have a significant negative impact on organizations of varied scales in the field of cybersecurity. Recently, malware researchers have increasingly turned to machine learning techniques to combat sophisticated obfuscation methods used in malware. However, collecting a diverse set of malware samples with various obfuscation techniques is challenging and often takes years, especially for newly developed malware. This issue is further compounded by a well-known limitation of machine learning models: their poor performance when training data is scarce. In this paper, we propose a new system for generating synthetic malware samples to augment imbalanced malware dataset. Our approach decomposes malware binary samples into mnemonic opcode sequences, leveraging natural language processing to extract contextual meaning behind malware opcode features to aid the learning of generative AI (GenAI) employed in this paper, Generative Adversarial Networks (GAN), Wasserstein Generative Adversarial Networks with Gradient Penalty (WGAN-GP), and a modified Diffusion model. The experiment results show that augmenting training data with Diffusion-based synthetic data significantly improves classification performance for minor classes by up to 60% on average. This enhancement ultimately leads to an overall malware classification performance of 96%, an 8% improvement. These findings demonstrate the high quality and fidelity of the synthetic data, its robustness, and its potential applications in malware analysis. Specifically, synthetic malware data proves effective in improving the classification of minor malware classes and detection rates, even though the size of known malware data is significantly small."
   },
   "2607.13336v1": {
     "tags": [],
@@ -400,7 +766,16 @@
     "sourceId": "2607.13336",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Yuxin Huang",
+      "Ziming Hong",
+      "Mingming Gong",
+      "Wanyu Wang",
+      "Jing Zhang",
+      "Tongliang Liu"
+    ],
+    "abstract": "Recent diffusion-based video generation models have enabled high-quality personalized video customization through both tuning-based pipelines, which fine-tune a video diffusion model, and reference-based pipelines such as image-to-video generation. However, these capabilities raise serious concerns about personal privacy, identity ownership and intellectual property protection. Existing anti-customization works focus on protecting images, while protection for videos against both reference- and tuning-based customization remains largely underexplored. Protecting videos in this setting raises three challenges: (i) Image-level perturbations, optimized frame by frame, cannot survive temporal compression by 3D video VAE. (ii) A video-level perturbation optimized on a single video is vulnerable to temporal editing and fails to protect unseen videos. (iii) Temporally inconsistent perturbations are not robust to temporal attacks. To address these challenges, we propose Temporally Consistent Universal Adversarial Perturbations (TC-UAP), the first protection method against both reference- and tuning-based video customization. TC-UAP optimizes an identity-level multi-frame UAP over sliding windows from multiple videos, accounting for local temporal dependencies induced by temporal compression in video VAE and enabling a single perturbation to protect unseen videos of varying lengths. Moreover, we introduce intrinsic temporal modeling and an extrinsic surrogate temporal-attack loss, which make the perturbation temporally consistent and robust to unseen temporal attacks. Empirically, quantitative and qualitative results show that TC-UAP achieves the strongest identity protection compared with existing methods under both reference- and tuning-based video customization, and remains robust under multiple unseen temporal attacks."
   },
   "2608.10393v1": {
     "tags": [],
@@ -411,7 +786,19 @@
     "sourceId": "2608.10393",
     "directions": [
       "基于扩散模型的对抗攻击"
-    ]
+    ],
+    "authors": [
+      "Jiahui Han",
+      "Yuhui Yao",
+      "Xin Wang",
+      "Jiafei Cao",
+      "Mingxuan Zhang",
+      "Danfeng Shan",
+      "Huiqi Deng",
+      "Guanchu Wang",
+      "Xia Hu"
+    ],
+    "abstract": "Vision-Language-Action (VLA) models have shown strong capabilities in controlling robots across diverse manipulation tasks. However, their adversarial robustness remains largely underexplored, and exploiting this weakness can lead to physical-world harm. Existing attacks on VLA models often rely on pixel-space perturbations or white-box access, resulting in noticeable artifacts and limited deployability in real-world robotic systems. In this work, we propose DURA, a diffusion-based unrestricted robotic attack that generates visually natural adversarial patches for VLA models. DURA supports both white-box and black-box attack settings, where the black-box setting requires only the predicted actions of the victim model. By optimizing along the latent trajectory of a pretrained diffusion model, DURA generates visually natural patches while steering the robot toward attacker-specified target actions. Extensive experiments in both simulation and the real physical world show that DURA consistently outperforms existing methods. Our findings expose a safety risk for physically deployed VLA models and call for stronger defenses."
   },
   "2608.10985v1": {
     "tags": [],
@@ -420,7 +807,17 @@
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
     "sourceId": "2608.10985",
-    "directions": []
+    "directions": [],
+    "authors": [
+      "Man Jiang",
+      "Ouxiang Li",
+      "Weibao Xue",
+      "Zhenhua Tang",
+      "Yuan Wang",
+      "Shuo Wang",
+      "Yanbin Hao"
+    ],
+    "abstract": "Erasing concepts from large-scale text-to-image (T2I) diffusion models has become increasingly crucial due to the growing concerns over copyright infringement, privacy violations, and offensive content. Existing approaches struggle to achieve both precise and persistent concept erasure: inaccurate localization of concept-related representations may cause unintended semantic interference, while incomplete removal of the underlying concept knowledge allows adversarial recovery. To address this dilemma, we propose PEAK, a \\textbf{\\textit{precise}} and \\textbf{\\textit{persistent}} concept erasure framework via k-Sparse Autoencoders (kSAEs). PEAK first trains a kSAE on internal activations of the diffusion denoising network to decompose dense representations into interpretable sparse features. By contrasting sparse activations induced by target and non-target prompts, PEAK identifies a compact set of target-specific features according to both activation strength and frequency. These localized features are then used for parameter optimization, where PEAK selectively suppresses target-related activations while preserving complementary non-target ones towards the original model. This feature-guided optimization embeds concept erasure directly into diffusion parameters, eliminating the need for additional inference-time intervention and facilitating effective persistence against adversarial attacks. Extensive experiments demonstrate that PEAK achieves effective and robust concept erasure. On the I2P benchmark, PEAK reduces NudeNet detections from 582 to 6, lowers the average attack success rate (ASR) from 96.52\\% to 5.63\\%, and preserves general generation quality on MS-COCO with a near-zero KID. Our code and models are available at: https://github.com/manmanTAT/PEAK"
   },
   "2608.12829v1": {
     "tags": [],
@@ -429,6 +826,16 @@
     "area": "基于扩散模型的对抗攻击",
     "source": "arxiv-auto",
     "sourceId": "2608.12829",
-    "directions": []
+    "doi": "10.1145/3767308.3835565",
+    "directions": [],
+    "authors": [
+      "Qiao Li",
+      "Xiaomeng Fu",
+      "Yuanshu Zhao",
+      "Qipeng Wang",
+      "Jiao Dai",
+      "Jizhong Han"
+    ],
+    "abstract": "Multimodal Diffusion Transformers (MM-DiTs) have demonstrated remarkable text-to-image generation performance, surpassing traditional U-Net-based diffusion models. Nevertheless, their powerful generative capabilities also raise significant safety concerns, as they may generate sensitive or inappropriate content. While existing concept erasure methods aim to mitigate such risks, most require modifying model parameters, which are often architecture-specific and impractical for deployed larger models. Several tuning-free approaches face challenges when applied to advanced large-scale MM-DiTs due to their deeply embedded knowledge, broad semantic space, and context-dependent text encoders. To address these challenges, we propose to erase concepts by directly manipulating the model's internal representations. Our key insight, derived from an in-depth analysis of MM-DiT's block-wise generative roles, is that text-conditioned semantic representations are most salient in the middle blocks of MM-DiTs. Based on this, we extract representations of an unwanted concept and a desirable safe one from the middle block, construct a steering vector from their difference, and inject this single vector into consecutive early and middle blocks. By operating exclusively on the sparse text-branch tokens and leveraging the straight sampling trajectory of rectified flow, our method achieves effective concept erasure with negligible overhead and without any training. Extensive experiments across MM-DiT models demonstrate that our method achieves state-of-the-art performance in erasing diverse concepts, enables effective control over the final output, and remains robust to adversarial attacks."
   }
 }

@@ -11,6 +11,7 @@ import { createPaper, listPapers, updatePaper, type Paper } from './store.js';
 import { classifyTitleAbstract } from './classify.js';
 import { readSettings, getActiveProvider } from './settingsStore.js';
 import * as vectorStore from './vectorStore.js';
+import * as metaEnrich from './metaEnrich.js';
 import { logger } from './logger.js';
 
 const RUNS_FILE = path.join(PAPERS_ROOT, 'scan-runs.json');
@@ -366,6 +367,9 @@ async function runCheck(runId: string): Promise<RunRecord> {
                     logger.warn({ err: e, sourceId: entry.sourceId }, 'auto embedding failed'),
                   );
                 }
+                void metaEnrich
+                  .enrichPaper(storageId)
+                  .catch((e) => logger.warn({ err: e, sourceId: entry.sourceId }, 'auto meta enrich failed'));
                 result.papers.push({
                   id: storageId,
                   source: entry.source,

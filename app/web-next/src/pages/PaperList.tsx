@@ -104,6 +104,11 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
           >
             {paper.title}
           </Link>
+          {paper.authors && paper.authors.length > 0 && (
+            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+              {paper.authors.join(' · ')}
+            </Typography.Text>
+          )}
           <Flex gap={8} wrap align="center" style={{ marginBottom: 4 }}>
             <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'monospace' }}>
               {paper.id}

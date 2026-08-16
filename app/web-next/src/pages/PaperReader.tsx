@@ -15,6 +15,7 @@ import {
   SwapOutlined,
   ThunderboltOutlined,
   UpOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { api } from '../api';
 import { useChatContext } from '../context/ChatContext';
@@ -277,6 +278,12 @@ export default function PaperReader() {
                 </a>
               )}
             </Flex>
+
+            {(paper.authors && paper.authors.length > 0) && (
+              <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+                <UserOutlined /> {paper.authors.join(' · ')}
+              </Typography.Text>
+            )}
 
             {(paper.venue || paper.year || paper.area || paper.source === 'arxiv-auto') && !editingMeta && (
               <Flex gap={6} wrap align="center" style={{ marginTop: 6 }}>

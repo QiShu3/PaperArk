@@ -13,6 +13,8 @@ export interface PaperMeta {
   doi?: string;
   externalUrl?: string;
   directions?: string[];
+  authors?: string[];
+  abstract?: string;
 }
 
 export type MetaStore = Record<string, PaperMeta>;

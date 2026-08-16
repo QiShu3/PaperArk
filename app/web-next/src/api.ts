@@ -11,6 +11,8 @@ import type {
   ResearchConfigDto,
   ResearchRun,
   ClassifyStatus,
+  EnrichStatus,
+  EnrichResult,
   MdTranslationRecord,
   SemanticHit,
   EmbedStatus,
@@ -346,6 +348,11 @@ export const api = {
   startClassify: () =>
     http<{ started: boolean }>('/api/research/classify', { method: 'POST' }),
   getClassifyStatus: () => http<ClassifyStatus>('/api/research/classify-status'),
+  startEnrich: () =>
+    http<{ started: boolean }>('/api/meta/enrich', { method: 'POST' }),
+  getEnrichStatus: () => http<EnrichStatus>('/api/meta/enrich/status'),
+  enrichPaper: (paperId: string) =>
+    http<EnrichResult>(`/api/papers/${encodeURIComponent(paperId)}/enrich`, { method: 'POST' }),
   startMdTranslate: (paperId: string) =>
     http<MdTranslationRecord>(`/api/papers/${encodeURIComponent(paperId)}/translate-md`, {
       method: 'POST',

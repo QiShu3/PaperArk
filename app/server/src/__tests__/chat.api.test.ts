@@ -580,3 +580,95 @@ describe('settings endpoints', () => {
       .send({ sources: [{ source: 'semantic', enabled: false }] });
   });
 });
+
+describe('meta enrich endpoints', () => {
+  beforeAll(async () => {
+    // 清掉前面 settings 测试留下的 sciverseToken / semantic key，避免补全链路拉起真实外部调用
+    writeFileSync(
+      join(tempDir, 'settings.json'),
+      JSON.stringify({ apiKey: 'test-key', model: 'v4-flash', sciverseToken: '', sources: {} }),
+    );
+  });
+
+  async function waitForEnrichIdle(timeoutMs = 3000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const res = await request(app).get('/api/meta/enrich/status');
+      if (!res.body.running) return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+
+  it('exposes enrich status with defaults', async () => {
+    const res = await request(app).get('/api/meta/enrich/status');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ running: false, current: 0, total: 0 });
+  });
+
+  it('returns 404 when enriching a missing paper', async () => {
+    const res = await request(app).post('/api/papers/does-not-exist/enrich');
+    expect(res.status).toBe(404);
+  });
+
+  it('enriches a single paper via multi-source stubs', async () => {
+    writeFileSync(join(tempDir, 'papers.json'), JSON.stringify({ 'test-paper': { tags: [] } }));
+    mockFetch.mockReset();
+    // OpenAlex（title.search 命中）
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            title: 'Test Paper',
+            doi: 'https://doi.org/10.1000/test.2025',
+            publication_year: 2025,
+            primary_location: { source: { display_name: 'CVPR' } },
+            authorships: [{ author: { display_name: 'Alice' } }, { author: { display_name: 'Bob' } }],
+            abstract_inverted_index: { test: [0], abstract: [1] },
+          },
+        ],
+      }),
+    });
+    // Crossref 兜底（不应命中）
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ message: { items: [] } }) });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ message: { items: [] } }) });
+
+    const res = await request(app).post('/api/papers/test-paper/enrich');
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(true);
+    expect(res.body.changes.doi).toBe('10.1000/test.2025');
+    expect(res.body.changes.venue).toBe('CVPR');
+    expect(res.body.changes.year).toBe('2025');
+    expect(res.body.changes.authors).toEqual(['Alice', 'Bob']);
+    expect(res.body.changes.abstract).toBe('test abstract');
+
+    // 写回确认
+    const list = await request(app).get('/api/papers');
+    const paper = (list.body as { id: string; doi?: string; venue?: string; authors?: string[] }[]).find(
+      (p) => p.id === 'test-paper',
+    );
+    expect(paper?.doi).toBe('10.1000/test.2025');
+    expect(paper?.authors).toEqual(['Alice', 'Bob']);
+  });
+
+  it('starts a library-wide enrich and reports progress (skips complete papers)', async () => {
+    writeFileSync(
+      join(tempDir, 'papers.json'),
+      JSON.stringify({
+        'test-paper': { tags: [], doi: '10.1000/x', venue: 'CVPR', year: '2025', authors: ['A'], abstract: 'x' },
+      }),
+    );
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ message: { items: [] } }) });
+
+    const res = await request(app).post('/api/meta/enrich');
+    expect(res.status).toBe(202);
+    expect(res.body.started).toBe(true);
+
+    await waitForEnrichIdle();
+    const status = await request(app).get('/api/meta/enrich/status');
+    expect(status.body.running).toBe(false);
+    expect(status.body.total).toBe(1);
+    expect(status.body.skipped).toBe(1);
+  });
+});

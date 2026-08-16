@@ -18,6 +18,7 @@ import type {
   ResearchQuery,
   ResearchRunDirection,
   ClassifyStatus,
+  EnrichStatus,
 } from '../types';
 import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
 
@@ -90,6 +91,11 @@ export default function ResearchPage() {
   const classifyQ = useQuery({
     queryKey: ['research-classify'],
     queryFn: api.getClassifyStatus,
+    refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
+  });
+  const enrichQ = useQuery({
+    queryKey: ['meta-enrich'],
+    queryFn: api.getEnrichStatus,
     refetchInterval: (q) => (q.state.data?.running ? 2000 : false),
   });
 
@@ -179,6 +185,15 @@ export default function ResearchPage() {
     onError: (e) => message.error(e instanceof Error ? e.message : '启动分类失败'),
   });
 
+  const enrichMut = useMutation({
+    mutationFn: api.startEnrich,
+    onSuccess: () => {
+      message.success('已开始对已有论文进行元数据补全');
+      qc.invalidateQueries({ queryKey: ['meta-enrich'] });
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : '启动元数据补全失败'),
+  });
+
   const submit = () => {
     const trimmedName = name.trim();
     const validQueries = queries
@@ -210,6 +225,8 @@ export default function ResearchPage() {
   const running = statusQ.data?.running ?? false;
   const classifyStatus: ClassifyStatus | undefined = classifyQ.data;
   const classifying = classifyStatus?.running ?? false;
+  const enrichStatus: EnrichStatus | undefined = enrichQ.data;
+  const enriching = enrichStatus?.running ?? false;
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -342,6 +359,42 @@ export default function ResearchPage() {
           {!classifying && (classifyStatus?.failed ?? 0) > 0 && (
             <ul style={{ marginTop: 12, paddingLeft: 20 }}>
               {classifyStatus!.errors.map((err) => (
+                <li key={err}>
+                  <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                    {err}
+                  </Typography.Text>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card style={{ marginTop: 24 }}>
+          <Flex justify="space-between" align="center" gap={16} wrap>
+            <div>
+              <Typography.Title level={5} style={{ margin: 0 }}>
+                元数据补全
+              </Typography.Title>
+              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                通过 arXiv / Sciverse / OpenAlex / Crossref 等多源重新审查论文，补全正式发表 DOI、会议/期刊、年份与作者、摘要；已填信息按规则保留。
+              </Typography.Text>
+              {enriching && enrichStatus && (
+                <Typography.Text style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                  进度 {enrichStatus.current}/{enrichStatus.total} · 已补全 {enrichStatus.matched} · 跳过 {enrichStatus.skipped} · 失败 {enrichStatus.failed}
+                </Typography.Text>
+              )}
+            </div>
+            <Button
+              icon={enriching || enrichMut.isPending ? <LoadingOutlined /> : <ReloadOutlined />}
+              onClick={() => enrichMut.mutate()}
+              disabled={enriching || enrichMut.isPending}
+            >
+              {enriching ? '补全中…' : '补全元数据'}
+            </Button>
+          </Flex>
+          {!enriching && (enrichStatus?.failed ?? 0) > 0 && (
+            <ul style={{ marginTop: 12, paddingLeft: 20 }}>
+              {enrichStatus!.errors.map((err) => (
                 <li key={err}>
                   <Typography.Text type="danger" style={{ fontSize: 12 }}>
                     {err}

@@ -12,12 +12,38 @@ export interface Paper {
   doi?: string;
   externalUrl?: string;
   directions?: string[];
+  authors?: string[];
+  abstract?: string;
   hasMd: boolean;
   hasPdf: boolean;
 }
 
 export interface PaperDetail extends Paper {
   markdown: string;
+}
+
+export interface EnrichStatus {
+  running: boolean;
+  current: number;
+  total: number;
+  matched: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
+export interface EnrichResult {
+  id: string;
+  title: string;
+  source: string;
+  updated: boolean;
+  changes: {
+    doi?: string;
+    venue?: string;
+    year?: string;
+    authors?: string[];
+    abstract?: string;
+  };
 }
 
 export interface SearchResult extends Paper {

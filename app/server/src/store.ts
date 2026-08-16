@@ -22,6 +22,8 @@ export interface Paper {
   doi?: string;
   externalUrl?: string;
   directions?: string[];
+  authors?: string[];
+  abstract?: string;
   hasMd: boolean;
   hasPdf: boolean;
 }
@@ -68,6 +70,8 @@ export function listPapers(): Paper[] {
       doi: m?.doi,
       externalUrl: m?.externalUrl,
       directions: m?.directions ?? [],
+      authors: m?.authors,
+      abstract: m?.abstract,
       hasMd,
       hasPdf: fs.existsSync(path.join(RAW_PDF_DIR, `${id}.pdf`)),
     };
@@ -131,6 +135,8 @@ export interface UpdatePatch {
   doi?: string;
   externalUrl?: string;
   directions?: string[];
+  authors?: string[];
+  abstract?: string;
 }
 
 export function updatePaper(id: string, patch: UpdatePatch): PaperDetail | null {
@@ -156,6 +162,8 @@ export function updatePaper(id: string, patch: UpdatePatch): PaperDetail | null 
     doi: patch.doi !== undefined ? patch.doi : cur.doi,
     externalUrl: patch.externalUrl !== undefined ? patch.externalUrl : cur.externalUrl,
     directions: patch.directions !== undefined ? patch.directions : (cur.directions ?? []),
+    authors: patch.authors !== undefined ? patch.authors : cur.authors,
+    abstract: patch.abstract !== undefined ? patch.abstract : cur.abstract,
   };
   writeMeta(meta);
   rebuildIndex();
@@ -228,6 +236,8 @@ function finishPaper(id: string, markdown: string, input: {
     doi: input.doi,
     externalUrl: input.externalUrl,
     directions: input.directions ?? [],
+    authors: meta[id]?.authors,
+    abstract: meta[id]?.abstract,
   };
   writeMeta(meta);
   rebuildIndex();

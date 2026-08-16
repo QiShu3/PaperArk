@@ -13,6 +13,7 @@ import * as settingsStore from './settingsStore.js';
 import * as research from './research.js';
 import * as researchConfig from './researchConfig.js';
 import * as classify from './classify.js';
+import * as metaEnrich from './metaEnrich.js';
 import * as paperClient from './paperClient.js';
 import * as sciverseClient from './sciverseClient.js';
 import sciverseRouter from './sciverseApi.js';
@@ -96,6 +97,9 @@ app.post('/api/papers', upload.single('pdf'), async (req, res) => {
         if (directions.length > 0) store.updatePaper(paper.id, { directions });
       })
       .catch((e) => logger.warn({ err: e, paperId: paper.id }, 'manual upload classification failed'));
+    void metaEnrich
+      .enrichPaper(paper.id)
+      .catch((e) => logger.warn({ err: e, paperId: paper.id }, 'manual upload meta enrich failed'));
     res.json(paper);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -374,6 +378,30 @@ app.get('/api/research/classify-status', (_req, res) => {
   res.json(classify.getClassifyStatus());
 });
 
+app.post('/api/meta/enrich', (_req, res) => {
+  try {
+    void metaEnrich.enrichLibrary().catch((e) => logger.error({ err: e }, 'meta enrich library failed'));
+    res.status(202).json({ started: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(e instanceof Error && message.includes('正在进行') ? 409 : 400).json({ error: message });
+  }
+});
+
+app.get('/api/meta/enrich/status', (_req, res) => {
+  res.json(metaEnrich.getEnrichStatus());
+});
+
+app.post('/api/papers/:id/enrich', async (req, res) => {
+  try {
+    const result = await metaEnrich.enrichPaper(req.params.id);
+    res.json(result);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    res.status(message.includes('不存在') ? 404 : 500).json({ error: message });
+  }
+});
+
 app.get('/api/papers/:id/images', (req, res) => {
   const paper = store.getPaper(req.params.id);
   if (!paper) return res.status(404).json({ error: '论文不存在' });
@@ -462,5 +490,19 @@ if (!process.env.VITEST) {
     logger.info({ cron: cfg.schedule.cron, timezone: cfg.schedule.timezone }, 'research scheduler started');
   } else {
     logger.warn({ cron: cfg.schedule.cron }, 'invalid research schedule cron, scheduler disabled');
+  }
+  // 元数据定期复查：默认每周日 10:00；META_ENRICH_CRON='' 关闭
+  const enrichCron = process.env.META_ENRICH_CRON ?? '0 10 * * 0';
+  if (enrichCron && cron.validate(enrichCron)) {
+    cron.schedule(enrichCron, () => {
+      try {
+        void metaEnrich.enrichLibrary().catch((e) => logger.warn({ err: e }, 'scheduled meta enrich failed'));
+      } catch (e) {
+        logger.warn({ err: e }, 'scheduled meta enrich skipped');
+      }
+    });
+    logger.info({ cron: enrichCron }, 'meta enrich scheduler started');
+  } else if (enrichCron) {
+    logger.warn({ cron: enrichCron }, 'invalid META_ENRICH_CRON, scheduler disabled');
   }
 }

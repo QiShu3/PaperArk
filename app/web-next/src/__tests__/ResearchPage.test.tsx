@@ -18,6 +18,8 @@ const { mockApi } = vi.hoisted(() => ({
     checkResearch: vi.fn(),
     startClassify: vi.fn(),
     getClassifyStatus: vi.fn(),
+    startEnrich: vi.fn(),
+    getEnrichStatus: vi.fn(),
   },
 }));
 
@@ -163,6 +165,16 @@ describe('ResearchPage', () => {
 
     await waitFor(() => {
       expect(mockApi.startClassify).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('starts metadata enrichment of existing papers', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /补全元数据/ }));
+
+    await waitFor(() => {
+      expect(mockApi.startEnrich).toHaveBeenCalledTimes(1);
     });
   });
 
