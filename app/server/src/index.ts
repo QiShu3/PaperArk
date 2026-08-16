@@ -18,6 +18,7 @@ import * as sciverseClient from './sciverseClient.js';
 import sciverseRouter from './sciverseApi.js';
 import * as translateMd from './translateMd.js';
 import * as vectorStore from './vectorStore.js';
+import * as overview from './overview.js';
 import cron from 'node-cron';
 import db, { insertPaper, saveChunks, chunkCount } from './db.js';
 import { parseMd } from './chunker.js';
@@ -201,6 +202,33 @@ app.get('/api/papers/:id/chunks', (req, res) => {
       )
       .all(req.params.id);
     res.json(rows);
+  }
+});
+
+app.get('/api/papers/:id/zh-chunks', (req, res) => {
+  const md = translateMd.readMdTranslation(req.params.id);
+  if (!md.trim()) {
+    return res.status(404).json({ error: '该论文暂无中文翻译' });
+  }
+  const { chunks } = parseMd(md);
+  res.json(
+    chunks.map((c, i) => ({
+      id: -1,
+      chunk_index: i,
+      heading: c.heading,
+      heading_level: c.heading_level,
+      parent_id: null,
+      content: c.content,
+      char_count: c.char_count,
+    })),
+  );
+});
+
+app.get('/api/overview/sections', (_req, res) => {
+  try {
+    res.json({ papers: overview.buildOverview() });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
 });
 

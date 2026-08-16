@@ -29,6 +29,38 @@ export interface TagCount {
   count: number;
 }
 
+/** 跨论文浏览分区（与 server 端 sections.ts 保持一致）。 */
+export type SectionCategory =
+  | 'abstract'
+  | 'introduction'
+  | 'related'
+  | 'method'
+  | 'experiments'
+  | 'conclusion'
+  | 'other';
+
+export interface SectionInfo {
+  chunkIndex: number;
+  heading: string;
+  charCount: number;
+  images: string[];
+  /** 该分区全部 chunk 索引（含编号子节，按正文顺序），用于拼接完整内容 */
+  chunkIndexes: number[];
+}
+
+export interface OverviewEntry {
+  paperId: string;
+  title: string;
+  year?: string;
+  /** 是否存在 MD 中文翻译（md-translations/<id>.zh.md） */
+  hasZh: boolean;
+  sections: Partial<Record<SectionCategory, SectionInfo>>;
+}
+
+export interface OverviewResponse {
+  papers: OverviewEntry[];
+}
+
 export interface ToolCall {
   id: string;
   type: 'function';

@@ -1082,3 +1082,57 @@ extractPdfToMd(pdfPath, id):
 | 前端单元 + 集成 | 84 tests ✅（原 78 + 新增 6） |
 | TypeScript 编译（web-next） | ✅ |
 | Vite 构建 | ✅ |
+
+---
+
+## Phase 17 — 跨论文分区快速浏览（2026-08-16）
+
+### 功能
+
+新增 `/browse` 页面「快速浏览」：跨论文统一浏览 **摘要 / 引言 / 相关工作 / 方法 / 实验 / 结论** 分区（含架构图、实验图等）：
+
+- **分区分类器**（`sections.ts`）：把 chunk 标题启发式归一化为 7 类分区，处理编号（`1 Introduction`）、罗马数字（`IV. EXPERIMENTS`）、同义词变体（`Methodology` / `The proposed method` / `System Overview` / `Threat Model`）、附录排除（`A. Experiment details` → other，单字母前缀排除罗马数字 I/V/X）、MinerU 内嵌 `<sub>/<sup>` 标签剥离
+- **跨论文聚合**（`overview.ts`）：实时从 SQLite 读取 chunks 分类，**子节继承**（`5.1. Ablation study` 继承 `5. Experiments`），子节图片并入父分区图片集合；图片按 chunk 内容正则提取（复用 `/api/papers/:id/images` 同款规则）
+- **浏览页面**：左侧论文列表（标注各分区可用性，缺失分区灰显 + 「无摘要」等占位），右侧渲染选中分区 Markdown（复用 XMarkdown，LaTeX 公式/图片正常）+ 图片画廊（antd Image.PreviewGroup 可放大）；Segmented 切换分区（默认摘要，另有「全部」按优先级展示）；上一篇/下一篇按钮 + 键盘 ←/→ 翻篇；点占位中的分区标签可直接切换筛选
+- **API**：`GET /api/overview/sections` → `{ papers: OverviewEntry[] }`（每篇含 paperId/title/year/hasZh/sections{chunkIndex, heading, charCount, images[]}），每请求实时计算（1215 chunk 毫秒级），无缓存失效问题
+- **中文浏览**：header「原文 / 中文」切换。译文复用 Phase 8 的 `md-translations/<id>.zh.md`（当前 8 篇）：`GET /api/papers/:id/zh-chunks` 用同一 `parseMd` 解析译文，译文标题结构与原版 **1:1**（实测 14 块完全对齐），前端按 **chunk_index** 取译文内容；`chunker.ts` 的 `ABSTRACT_RE` 扩展支持 `摘要`（含 `摘要——` 双破折号），保证中英摘要块索引一致；无译文的论文自动回退原文并提示「暂无中文翻译，显示原文」，列表带「有译文」标记
+- **分区完整内容**（2026-08-16 修正分块粒度问题）：MinerU 把编号子节（`2.1.`/`3.2.`，全库 336 块、28%）输出为 `##` 级别，导致 chunk 是小节粒度、顶级章节 chunk 只剩引子文字（如 `2307.08076` 的 `4. The proposed method` 仅 598 字符）。`SectionInfo` 新增 `chunkIndexes: number[]`（该分区全部 chunk 索引，含子节，按正文顺序），浏览页按索引**拼接完整章节内容**（子节补 `## 标题` 保持结构），中英文同理；`charCount` 改为分区累计。实测 `2307.08076` 实验分区由 2414 → **15114** 字符（含 5.1~5.6 与消融研究）；不动 chunk 表与向量，零迁移
+
+### 实测（2026-08-16，真实库 39 篇）
+
+- 分区覆盖率：摘要 38/39、引言 38、结论 37、实验 28、相关工作 21、方法 19；无分区的标题落入 other（灰标展示）
+- `2605.14396v1`（标题含 `<sub>` 标签的论文）由「几乎不可浏览」变为全分区可用；方法分区正确带出架构图、实验分区带出子节图表
+- 全库概览接口响应 <10ms
+- 中英分块对齐实测：`2605.15246v1` 原版与译文各 14 块，标题一一对应（`I. 引言` ↔ `I. INTRODUCTION`，摘要块索引一致）
+
+### 修改文件清单
+
+```
+新增:
+  app/server/src/sections.ts                  (分区分类器：classifyHeading / isSubsectionHeading)
+  app/server/src/overview.ts                  (跨论文聚合 buildOverview，含 hasZh)
+  app/server/src/__tests__/sections.test.ts   (47 用例)
+  app/server/src/__tests__/overview.api.test.ts (6 用例：聚合 4 + zh-chunks 2)
+  app/web-next/src/pages/BrowsePage.tsx       (/browse 快速浏览页 + 原文/中文切换 + 分区内容拼接)
+  app/web-next/src/__tests__/BrowsePage.test.tsx (9 用例)
+
+修改:
+  app/server/src/chunker.ts                   (ABSTRACT_RE 支持 摘要，含 —— 双破折号)
+  app/server/src/index.ts                     (+ GET /api/overview/sections、GET /api/papers/:id/zh-chunks)
+  app/server/src/__tests__/chunker.test.ts    (+ 中文摘要 1 用例)
+  app/web-next/src/types.ts                   (+ SectionCategory/SectionInfo/OverviewEntry(hasZh)/OverviewResponse)
+  app/web-next/src/api.ts                     (+ getOverviewSections、getZhChunks)
+  app/web-next/src/App.tsx                    (+ /browse 路由)
+  app/web-next/src/pages/PaperList.tsx        (+ 「快速浏览」入口按钮)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 后端单元 + API | 212 tests ✅（原 203 + 新增 9） |
+| 前端单元 + 集成 | 93 tests ✅（原 84 + 新增 9） |
+| TypeScript 编译（server + web-next） | ✅ |
+| Vite 构建 | ✅ |
+| 真实库接口验证 | ✅（39 篇，覆盖率见上） |

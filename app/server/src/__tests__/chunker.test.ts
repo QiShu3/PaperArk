@@ -15,6 +15,12 @@ describe('parseMd', () => {
     expect(result.chunks[0].content).toBe('This paper explores new methods.');
   });
 
+  it('detects Chinese 摘要 abstract (translated MD)', () => {
+    const result = parseMd('# 测试论文\n\n摘要——这是中文摘要内容。\n\n## I. 引言\n\n正文。');
+    expect(result.chunks[0].heading).toBe('Abstract');
+    expect(result.chunks[0].content).toBe('这是中文摘要内容。');
+  });
+
   it('detects Abstract in bold-with-colon format', () => {
     const result = parseMd(
       '# Test Paper\n\n**Abstract:** This paper explores new methods.\n\n## Introduction\n\nBody text.',

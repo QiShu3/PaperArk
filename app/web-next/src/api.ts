@@ -21,6 +21,7 @@ import type {
   SciverseFavorite,
   SciverseStatus,
   PromoteResult,
+  OverviewResponse,
 } from './types';
 
 const RETRY_DELAYS = [1000, 3000, 6000];
@@ -158,6 +159,9 @@ export const api = {
     http<{ images: string[] }>(`/api/papers/${encodeURIComponent(paperId)}/images`),
   getChunks: (paperId: string, q?: string) =>
     http<ChunkRow[]>(`/api/papers/${encodeURIComponent(paperId)}/chunks${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  getOverviewSections: () => http<OverviewResponse>('/api/overview/sections'),
+  getZhChunks: (paperId: string) =>
+    http<ChunkRow[]>(`/api/papers/${encodeURIComponent(paperId)}/zh-chunks`),
   chat: (
     model: string,
     messages: ChatMessage[],

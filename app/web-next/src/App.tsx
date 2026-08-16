@@ -7,6 +7,7 @@ import PaperReader from './pages/PaperReader';
 import GlobalChat from './pages/GlobalChat';
 import SciversePage from './pages/SciversePage';
 import ResearchPage from './pages/ResearchPage';
+import BrowsePage from './pages/BrowsePage';
 import NotFound from './pages/NotFound';
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/papers" element={<PaperList />} />
+          <Route path="/browse" element={<BrowsePage />} />
           <Route path="/paper/:id" element={<PaperReader />} />
           <Route path="/chat" element={<GlobalChat />} />
           <Route path="/sciverse" element={<SciversePage />} />

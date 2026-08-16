@@ -1,5 +1,6 @@
 const HEADING_RE = /^(#{1,6})\s+(.+)$/;
-const ABSTRACT_RE = /^(#{1,4}\s+)?(\*\*)?Abstract(\*\*)?[.\-\—:]?(\*\*)?\s*/im;
+// 同时匹配英文 Abstract 与中文 摘要（MD 翻译版），保证中英文分块索引对齐
+const ABSTRACT_RE = /^(#{1,4}\s+)?(\*\*)?(Abstract|摘要)(\*\*)?[.\-\—:]*(\*\*)?\s*/im;
 
 export interface Chunk {
   heading: string;

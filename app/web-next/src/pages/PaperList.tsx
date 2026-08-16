@@ -301,6 +301,9 @@ export default function PaperList() {
             <Button icon={<ReloadOutlined />} onClick={() => navigate('/research')}>
               研究方向
             </Button>
+            <Button icon={<ThunderboltOutlined />} onClick={() => navigate('/browse')}>
+              快速浏览
+            </Button>
             <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} aria-label="设置" />
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setUploadOpen(true)}>
               新增论文
