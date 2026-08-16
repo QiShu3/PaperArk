@@ -370,5 +370,14 @@
     "directions": [
       "基于扩散模型的对抗攻击"
     ]
+  },
+  "sciverse-1c23c8a9a8d8ad07d599d27aee7b17b72fc1ec41a88c459c6a8aaf71479059a5": {
+    "tags": [],
+    "addedAt": "2026-08-13T02:20:18.103Z",
+    "year": "2024",
+    "source": "sciverse",
+    "sourceId": "1c23c8a9a8d8ad07d599d27aee7b17b72fc1ec41a88c459c6a8aaf71479059a5",
+    "doi": "arXiv:2412.15341",
+    "directions": []
   }
 }

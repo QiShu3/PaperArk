@@ -407,7 +407,14 @@ if (!process.env.VITEST) {
     void Promise.all([
       paperClient.closePaperClient(),
       sciverseClient.closeSciverseClient(),
-    ]).finally(() => process.exit(0));
+    ]).finally(() => {
+      try {
+        db.close();
+      } catch {
+        // already closed
+      }
+      process.exit(0);
+    });
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
