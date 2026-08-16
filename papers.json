@@ -61,10 +61,12 @@
   },
   "2606.09909v1": {
     "tags": [],
+    "addedAt": "2026-07-24T01:30:00.000Z",
     "venue": "KDD",
     "year": "2026",
     "area": "版权攻击",
-    "addedAt": "2026-07-24T01:30:00.000Z",
+    "source": "arxiv-auto",
+    "sourceId": "2606.09909",
     "directions": [
       "基于扩散模型的对抗攻击"
     ]
@@ -378,6 +380,55 @@
     "source": "sciverse",
     "sourceId": "1c23c8a9a8d8ad07d599d27aee7b17b72fc1ec41a88c459c6a8aaf71479059a5",
     "doi": "arXiv:2412.15341",
+    "directions": []
+  },
+  "2604.22084v1": {
+    "tags": [],
+    "addedAt": "2026-08-16T12:36:56.788Z",
+    "year": "2026",
+    "area": "基于扩散模型的对抗攻击",
+    "source": "arxiv-auto",
+    "sourceId": "2604.22084",
+    "directions": []
+  },
+  "2607.13336v1": {
+    "tags": [],
+    "addedAt": "2026-08-16T12:37:49.682Z",
+    "year": "2026",
+    "area": "基于扩散模型的对抗攻击",
+    "source": "arxiv-auto",
+    "sourceId": "2607.13336",
+    "directions": [
+      "基于扩散模型的对抗攻击"
+    ]
+  },
+  "2608.10393v1": {
+    "tags": [],
+    "addedAt": "2026-08-16T12:37:59.509Z",
+    "year": "2026",
+    "area": "基于扩散模型的对抗攻击",
+    "source": "arxiv-auto",
+    "sourceId": "2608.10393",
+    "directions": [
+      "基于扩散模型的对抗攻击"
+    ]
+  },
+  "2608.10985v1": {
+    "tags": [],
+    "addedAt": "2026-08-16T12:38:08.857Z",
+    "year": "2026",
+    "area": "基于扩散模型的对抗攻击",
+    "source": "arxiv-auto",
+    "sourceId": "2608.10985",
+    "directions": []
+  },
+  "2608.12829v1": {
+    "tags": [],
+    "addedAt": "2026-08-16T12:38:18.242Z",
+    "year": "2026",
+    "area": "基于扩散模型的对抗攻击",
+    "source": "arxiv-auto",
+    "sourceId": "2608.12829",
     "directions": []
   }
 }

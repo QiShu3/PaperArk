@@ -6,9 +6,15 @@ import { MD_DIR, INDEX_MD } from './paths.js';
 export function extractTitle(mdPath: string): string {
   try {
     const content = fs.readFileSync(mdPath, 'utf-8');
-    const firstLine = content.split('\n').find((l) => l.trim().length > 0) ?? '';
-    const title = firstLine.replace(/^#+\s+/, '').trim();
-    return title || path.basename(mdPath, '.md');
+    const lines = content.split('\n');
+    // 优先取第一个一级标题（与 chunker.extractTitle 保持一致），
+    // 避免 MinerU 输出头部有期刊页眉等非标题文本时把页眉当标题。
+    for (const line of lines) {
+      const m = line.match(/^#\s+(.+)/);
+      if (m) return m[1].trim();
+    }
+    const firstLine = lines.find((l) => l.trim().length > 0) ?? '';
+    return firstLine.replace(/^#+\s+/, '').trim() || path.basename(mdPath, '.md');
   } catch {
     return path.basename(mdPath, '.md');
   }
