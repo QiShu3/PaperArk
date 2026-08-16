@@ -51,6 +51,13 @@ describe('normalizeTitle / titleSimilarity', () => {
         'Stable Diffusion Text-Image Generation',
       ),
     ).toBe(0);
+    // 领域通用词占比高的不同论文（DATTE vs Cert-LAS，9/10 token 重合）→ 拒绝
+    expect(
+      titleSimilarity(
+        'Cert-LAS: Toward Certified Model Ownership Verification for Text-to-Image Diffusion Models via Layer-Adaptive Smoothing',
+        'Diffusion Adaptive Text Embedding for Text-to-Image Diffusion Models',
+      ),
+    ).toBe(0);
   });
 
   it('tolerates single-token typos via overlap', () => {
@@ -179,7 +186,7 @@ describe('数据源解析', () => {
     });
   });
 
-  it('filters arXiv-only DOI (10.48550) from OpenAlex results and restores abstract', async () => {
+  it('filters arXiv-only DOI (10.48550) and arXiv venue display names from OpenAlex results', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -187,21 +194,33 @@ describe('数据源解析', () => {
           title: 'Diffusion Attacks on Neural Networks',
           doi: 'https://doi.org/10.48550/arXiv.2607.28936',
           publication_year: 2026,
-          primary_location: { source: { display_name: 'arXiv' } },
+          primary_location: { source: { display_name: 'arXiv (Cornell University)' } },
           authorships: [{ author: { display_name: 'Alice Chen' } }],
           abstract_inverted_index: { 'attacks': [0], 'study': [1], 'we': [2] },
         }],
       }),
     });
     vi.stubGlobal('fetch', fetchMock);
-    const result = await _private.queryOpenAlex('Diffusion Attacks', '2607.28936');
+    const result = await _private.queryOpenAlex('Diffusion Attacks on Neural Networks');
     expect(result).toEqual({
       doi: undefined, // 10.48550 被过滤
-      venue: undefined, // arXiv 被过滤
+      venue: undefined, // arXiv (Cornell University) 被过滤
       year: '2026',
       authors: ['Alice Chen'],
       abstract: 'attacks study we',
     });
+  });
+
+  it('strips commas from the title in the OpenAlex filter to avoid 400', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await _private.queryOpenAlex('Privacy Leakage in Tabular Diffusion Models: Factors, Knowledge, Metrics');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).not.toContain('%2C');
+    expect(url).toContain('title.search:Privacy%20Leakage');
   });
 
   it('returns null when Crossref has no matching title', async () => {

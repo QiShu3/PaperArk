@@ -29,7 +29,7 @@ const REQUEST_GAP_MS = 150;
 // 预印本/非正式发表的 DOI 前缀（arXiv / engrXiv / SSRN）不作为「正式发表 DOI」补全
 const PREPRINT_DOI_RE = /^10\.(48550|31224|2139)\//i;
 const UNKNOWN_VENUE = '未收录';
-const ARXIV_VENUE_RE = /^(arxiv|arxiv\.org|arxiv preprint|arxiv pre-print)$/i;
+const ARXIV_VENUE_RE = /^(arxiv|arxiv\.org|arxiv preprint|arxiv pre-print|arxiv \(cornell university\))$/i;
 const ARXIV_ID_RE = /^\d{4}\.\d{4,5}(v\d+)?$/;
 
 export interface EnrichedChanges {
@@ -104,15 +104,12 @@ export function titleSimilarity(a: string, b: string): number {
   if (shorter.length / longer.length >= 0.6) {
     if (longer.join(' ').includes(shorter.join(' '))) return 0.95;
   }
-  // token 重合率：短标题过短（<4 词）不做模糊匹配；且短标题须占长标题 ≥50%，
-  // 防止「Hidden in Plain Sight」这类通用短语标题被整句包含时误配
-  const min = shorter.length;
-  if (min < 4) return 0;
-  const sizeRatio = min / longer.length;
-  if (sizeRatio < 0.5) return 0;
+  // token 重合率：短标题过短（<4 词）不做模糊匹配；
+  // 分母用较长标题，避免领域通用词（diffusion/text/image/models 等）占比虚高导致误配
+  if (shorter.length < 4) return 0;
   const setB = new Set(longer);
   const overlap = shorter.filter((t) => setB.has(t)).length;
-  const ratio = overlap / min;
+  const ratio = overlap / longer.length;
   return ratio >= MATCH_THRESHOLD ? ratio : 0;
 }
 
@@ -242,23 +239,17 @@ interface OpenAlexWork {
   abstract_inverted_index?: Record<string, number[]>;
 }
 
-async function queryOpenAlex(
-  title: string,
-  arxivBaseId?: string,
-): Promise<Partial<EnrichedChanges> | null> {
-  const filter = arxivBaseId
-    ? `ids.arxiv:${arxivBaseId}`
-    : `title.search:${encodeURIComponent(title)}`;
-  const url = `https://api.openalex.org/works?filter=${filter}&per-page=5&select=id,doi,title,publication_year,primary_location,authorships,abstract_inverted_index`;
+async function queryOpenAlex(title: string): Promise<Partial<EnrichedChanges> | null> {
+  // 注：OpenAlex 无 ids.arxiv 过滤字段（实测 400）；filter 值中逗号是分隔符，
+  // 标题含逗号会 400，查询前把逗号替换为空格（检索为模糊匹配，pickBest 会校验结果）
+  const filterTitle = title.replace(/,/g, ' ');
+  const url = `https://api.openalex.org/works?filter=title.search:${encodeURIComponent(filterTitle)}&per-page=5&select=id,doi,title,publication_year,primary_location,authorships,abstract_inverted_index`;
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`OpenAlex 请求失败 (HTTP ${res.status})`);
   const data = (await res.json()) as { results?: OpenAlexWork[] };
-  const items = data.results ?? [];
-  const best = arxivBaseId
-    ? (items[0] ?? null)
-    : pickBest(title, items.map((w) => ({ title: w.title, _raw: w })));
+  const best = pickBest(title, (data.results ?? []).map((w) => ({ title: w.title, _raw: w })));
   if (!best) return null;
-  const raw = '_raw' in best ? (best as { _raw: OpenAlexWork })._raw : (best as OpenAlexWork);
+  const raw = best._raw;
   const authors = cleanAuthors(
     (raw.authorships ?? []).map((a) => a.author?.display_name ?? ''),
   );
@@ -419,7 +410,7 @@ export async function enrichPaper(id: string): Promise<EnrichResult> {
   if (sciverseClient.sciverseMcpEnabled() && sciverseClient.sciverseToken()) {
     sources.push({ name: 'sciverse', query: () => querySciverse(paper.title) });
   }
-  sources.push({ name: 'openalex', query: () => queryOpenAlex(paper.title, arxivId ? arxivId.replace(/v\d+$/i, '') : undefined) });
+  sources.push({ name: 'openalex', query: () => queryOpenAlex(paper.title) });
   sources.push({ name: 'crossref', query: () => queryCrossref(paper.title) });
   const settings = readSettings();
   const s2Key = settings.sources?.semantic?.key?.trim();
