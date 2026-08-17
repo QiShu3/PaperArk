@@ -24,6 +24,25 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * 在 PDF 末尾 %%EOF 前插入一行注释，改变文件字节使 MinerU 结果缓存失效。
+ * 注释是合法 PDF 语法（% 开头到行尾），不破坏结构，解析器不受影响。
+ * 返回临时副本路径；无 %%EOF 时返回 null（放弃注入）。
+ */
+function makeCacheBustCopy(pdfPath: string, tmpDir: string): string | null {
+  const buf = fs.readFileSync(pdfPath);
+  const text = buf.toString('latin1');
+  const idx = text.lastIndexOf('%%EOF');
+  if (idx === -1) return null;
+  const modified = Buffer.from(
+    text.slice(0, idx) + `% mineru-reparse-${Date.now()}\n` + text.slice(idx),
+    'latin1',
+  );
+  const out = path.join(tmpDir, path.basename(pdfPath));
+  fs.writeFileSync(out, modified);
+  return out;
+}
+
 async function httpJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, { signal: AbortSignal.timeout(120_000), ...init });
   if (!res.ok) throw new Error(`MinerU API 请求失败 (HTTP ${res.status})`);
@@ -36,6 +55,17 @@ interface ApiEnvelope {
   data?: Record<string, unknown>;
 }
 
+export interface MineruExtractOptions {
+  /** 解析模式：auto（默认，文字层优先）/ ocr（强制 OCR，可修复文字层缺字）/ txt（仅文字层） */
+  parseMode?: 'auto' | 'ocr' | 'txt';
+  /** 模型版本：vlm / v2.1 等，默认 vlm */
+  modelVersion?: string;
+  /** 自定义 data_id（用于绕过 MinerU 结果缓存，如重新解析时传唯一值） */
+  dataId?: string;
+  /** 通过注入 PDF 注释改变文件字节，强制 MinerU 缓存失效（仅用于重新解析） */
+  bustCache?: boolean;
+}
+
 function expectOk(body: ApiEnvelope, action: string): void {
   if (!body || body.code !== 0) {
     throw new Error(`MinerU ${action}失败：${body?.msg ?? '未知错误'}`);
@@ -43,7 +73,7 @@ function expectOk(body: ApiEnvelope, action: string): void {
 }
 
 /** 申请上传链接并上传文件，返回 batch_id。 */
-async function submitPdf(pdfPath: string, dataId: string): Promise<string> {
+async function submitPdf(pdfPath: string, dataId: string, opts?: MineruExtractOptions): Promise<string> {
   const stat = fs.statSync(pdfPath);
   if (stat.size > FILE_LIMIT) throw new Error(FILE_LIMIT_MSG);
   const token = mineruToken();
@@ -53,8 +83,9 @@ async function submitPdf(pdfPath: string, dataId: string): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      files: [{ name, data_id: dataId }],
-      model_version: 'vlm',
+      files: [{ name, data_id: opts?.dataId ?? dataId }],
+      model_version: opts?.modelVersion ?? 'vlm',
+      ...(opts?.parseMode ? { parse_mode: opts.parseMode } : {}),
     }),
   });
   expectOk(body, '提交');
@@ -147,10 +178,20 @@ async function downloadZip(url: string, destPath: string): Promise<void> {
   fs.writeFileSync(destPath, Buffer.from(await res.arrayBuffer()));
 }
 
-export async function extractPdfToMd(pdfPath: string, id: string): Promise<void> {
+export async function extractPdfToMd(pdfPath: string, id: string, opts?: MineruExtractOptions): Promise<void> {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineru-'));
   try {
-    const batchId = await submitPdf(pdfPath, id);
+    let uploadPath = pdfPath;
+    if (opts?.bustCache) {
+      const copy = makeCacheBustCopy(pdfPath, tmp);
+      if (copy) {
+        uploadPath = copy;
+        console.log(`[mineru] cache-bust copy created for ${id}`);
+      } else {
+        console.warn(`[mineru] ${id}: no %%EOF found, skip cache-bust`);
+      }
+    }
+    const batchId = await submitPdf(uploadPath, id, opts);
     const zipUrl = await pollBatchResult(batchId);
 
     const zipPath = path.join(tmp, 'result.zip');

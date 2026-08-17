@@ -10,6 +10,8 @@ export default defineConfig({
     },
   },
   server: {
+    // 监听所有网卡（含局域网）：局域网设备可通过 http://<本机IP>:5174 访问
+    host: true,
     port: 5174,
     proxy: {
       '/api': 'http://localhost:3001',
