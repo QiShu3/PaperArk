@@ -37,6 +37,35 @@ cron / POST /api/research/check → research 流水线
   └─ 记录：scan-runs.json（每次运行状态与失败原因）
 ```
 
+## 桌面版（Windows）
+
+无需安装 Node/Python 环境，从 [GitHub Releases](https://github.com/QiShu3/PaperArk/releases) 下载即用：
+
+- **安装版**：`PaperArk-Setup-<版本>.exe`（向导式安装，可自定义安装目录）
+- **便携版**：`PaperArk-<版本>.portable.exe`（单文件免安装，双击即用）
+
+### 与 Web 版的差异
+
+- **数据目录**：默认在系统用户数据目录（`%APPDATA%\PaperArk\papers-data`），菜单「打开数据目录」可直达；可从 Web 版手动拷贝 `papers.json` / `papers.db` / `rawPDF` / `MD` 迁移
+- **内嵌服务**：应用自带 Express + SQLite 后端（自动分配空闲端口，不占用 3001），关闭窗口即停止
+- **默认降级项**（可用环境变量恢复）：
+  - 自动收录的搜索/下载走 arXiv 直连（桌面无 uv/Python 跑 MCP）；MinerU Token 在设置界面配置后，解析入库不受影响
+  - Sciverse 工作区默认停用（桌面无 npx 环境）
+  - 语义向量检索默认关闭（FTS 关键词检索不受影响）
+- **不受影响**：论文上传解析（MinerU 云端 API）、AI 对话 / MD 翻译（DeepSeek）、自动收录（arXiv 直连）均在设置界面配置后直接可用
+- 未签名安装包会触发 Windows SmartScreen 提示，点击「更多信息 → 仍要运行」即可
+
+### 构建安装包（开发者）
+
+```bash
+cd app/desktop
+npm install
+npm run dist:win     # 产出 dist/PaperArk-Setup-<ver>.exe + dist/PaperArk-<ver>.portable.exe
+npm run smoke        # 冒烟验证打包产物（需先执行 dist:win）
+```
+
+> 说明：better-sqlite3 为原生模块，打包使用与 Electron 42（ABI 146）匹配的官方预编译二进制（`scripts/fetch-prebuilt.mjs` 自动下载）；升级 Electron 时需确认对应 ABI 的 prebuild 存在，否则需安装 VS Build Tools 走源码编译。
+
 ## 快速开始
 
 ### 0. 环境要求

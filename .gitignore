@@ -8,6 +8,12 @@ dist/
 app/web/dist/
 __pycache__/
 
+# Desktop (Electron) build artifacts
+app/desktop/dist/
+app/desktop/dist-electron/
+app/desktop/server-dist/
+app/desktop/web-next/
+
 # Knowledge base data (PDF / MinerU Markdown / images)
 rawPDF/
 MD/

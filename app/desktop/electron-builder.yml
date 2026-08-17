@@ -1,0 +1,32 @@
+appId: com.paperark.app
+productName: PaperArk
+directories:
+  buildResources: build
+  output: dist
+files:
+  - dist-electron/**
+  - server-dist/**
+  - web-next/dist/**
+  - node_modules/**
+  - "!**/*.map"
+  - "!**/*.md"
+asarUnpack:
+  - "**/*.node"
+  - "node_modules/better-sqlite3/**"
+# 不触发 node-gyp 源码编译（本机无 VS 工具链）；
+# better-sqlite3 使用与 Electron 42 (ABI 146) 匹配的官方预编译二进制（见 scripts/fetch-prebuilt.mjs）
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+    - target: portable
+  icon: build/icon.ico
+nsis:
+  artifactName: PaperArk-Setup-${version}.exe
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+portable:
+  artifactName: PaperArk-${version}.portable.exe
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

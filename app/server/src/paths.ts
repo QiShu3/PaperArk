@@ -17,4 +17,8 @@ export const MD_TRANSLATION_DIR = path.join(PAPERS_ROOT, 'md-translations');
 export const INDEX_MD = path.join(MD_DIR, 'index.md');
 export const META_FILE = path.join(PAPERS_ROOT, 'papers.json');
 export const DB_PATH = path.join(PAPERS_ROOT, 'papers.db');
-export const WEB_DIST = path.resolve(__dirname, '..', '..', 'web-next', 'dist');
+// 桌面版（Electron）通过 env 覆盖为 asar 内真实路径；
+// Web 版保持默认：src/ 编译到 server/dist 后，../../web-next/dist 即仓库内前端产物
+export const WEB_DIST = process.env.WEB_DIST
+  ? path.resolve(process.env.WEB_DIST)
+  : path.resolve(__dirname, '..', '..', 'web-next', 'dist');
