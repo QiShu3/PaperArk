@@ -42,3 +42,5 @@ app/server-dev*.log
 
 # Misc
 chat-images.png
+
+papers.json
