@@ -1136,3 +1136,69 @@ extractPdfToMd(pdfPath, id):
 | TypeScript 编译（server + web-next） | ✅ |
 | Vite 构建 | ✅ |
 | 真实库接口验证 | ✅（39 篇，覆盖率见上） |
+
+---
+
+## Phase 18 — 论文卡片点击预览（2026-08-16）
+
+### 功能
+
+`/papers` 列表页点击论文卡片（非链接区域）从右侧滑出**预览抽屉**（antd Drawer），展示完整元数据 + 摘要 + 操作按钮，无需新后端接口（`listPapers` 已返回全部元数据字段）：
+
+- **交互**：卡片整卡可点击（`role="button"` + 键盘 Enter/Space 可达）；卡片内标题链接与原文/arXiv/PDF 外链 `stopPropagation` 不触发预览
+- **抽屉内容**：Descriptions 元数据表（作者/年份/venue/研究方向/来源+sourceId/DOI/收录时间/ID/方向 tags/用户标签/笔记）+ 摘要（无则「暂无摘要」占位）+ 操作按钮（进入阅读 / 论文对话 / 原文 / arXiv / PDF）
+- **共享工具**：`formatDate` / `parseSource` / `sourceLabel` 提取至 `lib/paperMeta.ts`（PaperList 与抽屉共用）
+
+### 修改文件清单
+
+```
+新增:
+  app/web-next/src/components/PaperPreviewDrawer.tsx   (预览抽屉)
+  app/web-next/src/lib/paperMeta.ts                   (元数据展示辅助函数)
+
+修改:
+  app/web-next/src/pages/PaperList.tsx                (PaperRow onPreview + stopPropagation + 挂载 Drawer)
+  app/web-next/src/__tests__/PaperList.test.tsx       (+ 3 用例：打开/标题链接不触发/关闭)
+  AGENTS.md
+```
+
+### 测试（最终）
+
+| 层级 | 结果 |
+|---|---|
+| 前端单元 + 集成 | 96 tests ✅（原 93 + 新增 3） |
+| TypeScript 编译（web-next） | ✅ |
+| Vite 构建 | ✅ |
+
+### 补充修复 — 全面取消夜间模式（2026-08-16）
+
+用户反馈「夜间模式出现黑色横块遮挡文字」，排查确认根因：`appThemeDark` 用 `...appTheme.token` 展开日间 token，把 `colorTextBase:'#141414'`（深色文字）带入暗色主题，`darkAlgorithm` 以它为基底派生 `colorText` 系列 → 暗色模式下文字保持深色，与深色背景融为一体，组件（按钮/搜索框/标签/Select）看起来像黑色实心块。
+
+处理：**全面取消夜间模式**，任何时候只显示日间主题——
+
+```
+修改:
+  app/web-next/src/theme.ts       (删除 appThemeDark / getThemeConfig，仅保留 appTheme)
+  app/web-next/src/main.tsx       (不再读 prefers-color-scheme，固定 theme={appTheme})
+  app/web-next/src/lib/markdown.tsx (移除 dark.css 导入)
+```
+
+| 验证 | 结果 |
+|---|---|
+| TypeScript 编译（web-next） | ✅ |
+| Vite 构建 | ✅ |
+### Phase 18 补充 — 预览触发方式改为整卡可点（2026-08-16）
+
+按用户反馈，预览触发方式从「点击卡片空白区域」改为「**整卡任意位置（含标题）点击都弹预览**」：标题从 `<Link>` 改为普通文本（不再直接跳转阅读页），进入阅读页的入口收敛到预览抽屉的「进入阅读」按钮；原文/arXiv/PDF 外链仍 `stopPropagation` 保持独立行为。排序测试断言从 `getAllByRole('link')` 改为卡片 `aria-label`。
+
+```
+修改:
+  app/web-next/src/pages/PaperList.tsx        (标题 Link → div，移除 Link import)
+  app/web-next/src/__tests__/PaperList.test.tsx (排序测试改 aria-label；「点击标题不触发」反转为「点击标题打开预览」)
+```
+
+| 验证 | 结果 |
+|---|---|
+| PaperList 测试 | 13/13 ✅ |
+| TypeScript 编译（web-next） | ✅ |
+| Vite 构建 | ✅ |

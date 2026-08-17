@@ -6,7 +6,7 @@ import { App as AntdApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { XProvider } from '@ant-design/x';
 import App from './App';
-import { getThemeConfig } from './theme';
+import { appTheme } from './theme';
 import './index.css';
 import 'dayjs/locale/zh-cn';
 import dayjs from 'dayjs';
@@ -18,9 +18,8 @@ const queryClient = new QueryClient({
 });
 
 function Root() {
-  const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
   return (
-    <XProvider locale={zhCN} theme={getThemeConfig(dark)}>
+    <XProvider locale={zhCN} theme={appTheme}>
       <AntdApp>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Flex, Input, List, Skeleton, Select, Space, Tag, Typography } from 'antd';
 import {
@@ -18,38 +18,9 @@ import type { Paper, Settings as SettingsType } from '../types';
 import { useDirection, GLOBAL_DIRECTION } from '../context/DirectionContext';
 import UploadDialog from '../components/UploadDialog';
 import SettingsDialog from '../components/SettingsDialog';
+import PaperPreviewDrawer from '../components/PaperPreviewDrawer';
+import { formatDate, parseSource, sourceLabel } from '../lib/paperMeta';
 import { getSettings, loadSettings, saveSettings } from '../lib/settings';
-
-function formatDate(iso?: string): string {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return '';
-  }
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  manual: '手动',
-  arxiv: 'arXiv',
-  semantic: 'Semantic Scholar',
-  openalex: 'OpenAlex',
-  iacr: 'IACR',
-  zenodo: 'Zenodo',
-};
-
-function parseSource(source?: string): string {
-  if (!source) return 'manual';
-  return source.endsWith('-auto') ? source.slice(0, -'-auto'.length) : source;
-}
-
-function sourceLabel(source?: string): string {
-  return SOURCE_LABELS[parseSource(source)] ?? parseSource(source);
-}
 
 type SortKey = 'addedDesc' | 'addedAsc' | 'yearDesc' | 'yearAsc' | 'titleAsc';
 
@@ -85,25 +56,41 @@ function sortPapers(list: Paper[], sortBy: SortKey): Paper[] {
   return arr;
 }
 
-function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
+function PaperRow({
+  paper,
+  onPreview,
+}: {
+  paper: Paper & { snippet?: string };
+  onPreview: (paper: Paper) => void;
+}) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`预览 ${paper.title}`}
+      onClick={() => onPreview(paper)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onPreview(paper);
+        }
+      }}
       style={{
         border: '1px solid rgba(5,5,5,0.08)',
         borderRadius: 10,
         padding: 16,
+        cursor: 'pointer',
         transition: 'box-shadow 0.2s',
       }}
       className="paper-row"
     >
       <Flex gap={16}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Link
-            to={`/paper/${paper.id}`}
-            style={{ fontSize: 15, fontWeight: 600, color: 'inherit', textDecoration: 'none', display: 'block', marginBottom: 6 }}
+          <div
+            style={{ fontSize: 15, fontWeight: 600, color: 'inherit', display: 'block', marginBottom: 6 }}
           >
             {paper.title}
-          </Link>
+          </div>
           {paper.authors && paper.authors.length > 0 && (
             <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
               {paper.authors.join(' · ')}
@@ -168,15 +155,33 @@ function PaperRow({ paper }: { paper: Paper & { snippet?: string } }) {
         </div>
         <Flex vertical align="flex-end" gap={4}>
           {paper.externalUrl && (
-            <a href={paper.externalUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
+            <a
+              href={paper.externalUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}
+            >
               <LinkOutlined /> 原文
             </a>
           )}
-          <a href={`https://arxiv.org/abs/${paper.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
+          <a
+            href={`https://arxiv.org/abs/${paper.id}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}
+          >
             <LinkOutlined /> arXiv
           </a>
           {paper.hasPdf && (
-            <a href={`/rawPDF/${paper.id}.pdf`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
+            <a
+              href={`/rawPDF/${paper.id}.pdf`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}
+            >
               <FilePdfOutlined /> PDF
             </a>
           )}
@@ -200,6 +205,7 @@ export default function PaperList() {
   const [sortBy, setSortBy] = useState<SortKey>('addedDesc');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewPaper, setPreviewPaper] = useState<Paper | null>(null);
   const [settings, setSettings] = useState<SettingsType>(getSettings);
 
   useEffect(() => {
@@ -414,7 +420,9 @@ export default function PaperList() {
             </Typography.Text>
           )}
 
-          {!loading && !error && sorted.map((p) => <PaperRow key={p.id} paper={p} />)}
+          {!loading && !error && sorted.map((p) => (
+            <PaperRow key={p.id} paper={p} onPreview={(paper) => setPreviewPaper(paper)} />
+          ))}
         </div>
       </div>
 
@@ -425,6 +433,7 @@ export default function PaperList() {
         settings={settings}
         onSettingsChange={handleSettingsChange}
       />
+      <PaperPreviewDrawer paper={previewPaper} onClose={() => setPreviewPaper(null)} />
     </div>
   );
 }

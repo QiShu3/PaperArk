@@ -36,6 +36,8 @@ const papers: Paper[] = [
     addedAt: '2026-08-04T10:00:00.000Z',
     year: '2025',
     venue: 'arXiv',
+    authors: ['Alice', 'Bob'],
+    abstract: 'This is the abstract of Zeta Paper.',
     directions: ['基于扩散模型的对抗攻击'],
     hasMd: true,
     hasPdf: true,
@@ -233,8 +235,11 @@ describe('PaperList', () => {
     renderPage();
 
     await screen.findByText('Zeta Paper');
-    const links = screen.getAllByRole('link', { name: /Paper$/ });
-    expect(links.map((r) => r.textContent)).toEqual([
+    const cardLabels = () =>
+      screen
+        .getAllByRole('button', { name: /预览 .*Paper/ })
+        .map((r) => r.getAttribute('aria-label'));
+    expect(cardLabels()).toEqual([
       expect.stringContaining('Alpha Paper'),
       expect.stringContaining('Zeta Paper'),
     ]);
@@ -244,8 +249,7 @@ describe('PaperList', () => {
     fireEvent.click(await screen.findByText('最早收录'));
 
     await waitFor(() => {
-      const sortedLinks = screen.getAllByRole('link', { name: /Paper$/ });
-      expect(sortedLinks.map((r) => r.textContent)).toEqual([
+      expect(cardLabels()).toEqual([
         expect.stringContaining('Zeta Paper'),
         expect.stringContaining('Alpha Paper'),
       ]);
@@ -270,5 +274,41 @@ describe('PaperList', () => {
     expect(await screen.findByText('LLM 提供商')).toBeInTheDocument();
     expect(screen.getByText('DeepSeek')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /MinerU/ })).toBeInTheDocument();
+  });
+
+  it('opens the preview drawer when clicking a paper card', async () => {
+    renderPage();
+
+    await screen.findByText('Zeta Paper');
+    fireEvent.click(screen.getByRole('button', { name: '预览 Zeta Paper' }));
+
+    expect(await screen.findByText('This is the abstract of Zeta Paper.')).toBeInTheDocument();
+    expect(screen.getByText('摘要')).toBeInTheDocument();
+    expect(screen.getAllByText('Alice · Bob').length).toBeGreaterThanOrEqual(2); // 卡片 + 抽屉
+    expect(screen.getByRole('button', { name: /进入阅读/ })).toBeInTheDocument();
+  });
+
+  it('opens the preview drawer when clicking the title (whole card is clickable)', async () => {
+    renderPage();
+
+    await screen.findByText('Zeta Paper');
+    fireEvent.click(screen.getByText('Zeta Paper'));
+
+    expect(await screen.findByText('This is the abstract of Zeta Paper.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /进入阅读/ })).toBeInTheDocument();
+  });
+
+  it('closes the preview drawer via the close button', async () => {
+    renderPage();
+
+    await screen.findByText('Zeta Paper');
+    fireEvent.click(screen.getByRole('button', { name: '预览 Zeta Paper' }));
+    expect(await screen.findByText('This is the abstract of Zeta Paper.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Close'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('This is the abstract of Zeta Paper.')).not.toBeInTheDocument();
+    });
   });
 });

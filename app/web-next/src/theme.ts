@@ -1,5 +1,6 @@
-import { theme, type ThemeConfig } from 'antd';
+import type { ThemeConfig } from 'antd';
 
+// 固定日间主题（已全面取消夜间模式，不再跟随系统 prefers-color-scheme）
 export const appTheme: ThemeConfig = {
   token: {
     colorPrimary: '#1f1f1f',
@@ -17,25 +18,3 @@ export const appTheme: ThemeConfig = {
     },
   },
 };
-
-export const appThemeDark: ThemeConfig = {
-  ...appTheme,
-  algorithm: theme.darkAlgorithm,
-  token: {
-    ...appTheme.token,
-    colorPrimary: '#f5f5f5',
-    colorInfo: '#f5f5f5',
-    colorBgLayout: '#141414',
-  },
-  components: {
-    Layout: {
-      headerBg: 'transparent',
-      siderBg: '#1f1f1f',
-      bodyBg: '#141414',
-    },
-  },
-};
-
-export function getThemeConfig(dark: boolean): ThemeConfig {
-  return dark ? appThemeDark : appTheme;
-}

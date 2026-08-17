@@ -2,7 +2,6 @@ import { memo, type CSSProperties } from 'react';
 import { XMarkdown, type ComponentProps } from '@ant-design/x-markdown';
 import Latex from '@ant-design/x-markdown/plugins/Latex';
 import '@ant-design/x-markdown/themes/light.css';
-import '@ant-design/x-markdown/themes/dark.css';
 
 export function resolveImage(src?: string): string {
   if (!src) return '';
