@@ -13,7 +13,7 @@
     "smoke": "node scripts/smoke-desktop.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "better-sqlite3": "12.11.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
